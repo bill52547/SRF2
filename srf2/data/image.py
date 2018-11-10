@@ -1,0 +1,240 @@
+import attr
+import h5py
+import numpy as np
+
+__all__ = ('Image_meta', 'Image_meta_singleton', 'Image_meta_2d', 'Image_meta_2d_singleton',
+           'Image_meta_3d', 'Image_meta_3d_singleton',)
+dt = h5py.special_dtype(vlen = str)
+
+
+@attr.s
+class Image_meta(object):
+    _shape = attr.ib(default = (1,) * 3)
+    _center = attr.ib(default = (0,) * 3)
+    _size = attr.ib(default = (1,) * 3)
+    _dims = attr.ib(default = ('x', 'y', 'z'))
+
+    @_shape.validator
+    def _check_arg_shape(self, attribute, value):
+        if not 2 <= len(value) <= 4:
+            raise ValueError('_shape must in range [2, 4]')
+        if len(value) == 4:
+            raise NotImplementedError
+        if not isinstance(value, tuple):
+            raise TypeError('_shape must be a tuple')
+
+    @_center.validator
+    def _check_arg_center(self, attribute, value):
+        if len(value) != len(self._shape):
+            raise ValueError('_center must have same size with _shape')
+        if not isinstance(value, tuple):
+            raise TypeError('_center must be a tuple')
+
+    @_size.validator
+    def _check_arg_size(self, attribute, value):
+        if len(value) != len(self._shape):
+            raise ValueError('_size must have same size with _shape')
+        if not isinstance(value, tuple):
+            raise TypeError('_size must be a tuple')
+
+    @_dims.validator
+    def _check_arg_dims(self, attribute, value):
+        if len(value) != len(self._shape):
+            raise ValueError('_dims must have same size with _shape')
+        if not isinstance(value, tuple):
+            raise TypeError('_dims must be a tuple')
+        if not set(value).issubset({'x', 'y', 'z', 't'}):
+            return ValueError('Only x, y, z and t are allowed int _dims')
+        if 't' in value:
+            raise NotImplementedError
+
+    @property
+    def shape(self):
+        return self._shape
+
+    @property
+    def center(self):
+        return self._center
+
+    @property
+    def size(self):
+        return self._size
+
+    @property
+    def dims(self):
+        return self._dims
+
+    @property
+    def unit_size(self):
+        return tuple(ti / tj for (ti, tj) in zip(self._size, self._shape))
+
+    @property
+    def ndim(self):
+        return len(self._dims)
+
+    @property
+    def n_x(self):
+        return self._shape[self._dims.index('x')] if 'x' in self._dims else 1
+
+    @property
+    def n_y(self):
+        return self._shape[self._dims.index('y')] if 'y' in self._dims else 1
+
+    @property
+    def n_z(self):
+        return self._shape[self._dims.index('z')] if 'z' in self._dims else 1
+
+    @property
+    def n_t(self):
+        return self._shape[self._dims.index('t')] if 't' in self._dims else 1
+
+    @property
+    def n_all(self):
+        return np.array(self.shape).prod()
+
+    def slice(self, start = None, stop = None, step = 1):
+        ind = slice(start, stop, step)
+        return Image_meta(self.shape[ind], self.center[ind], self.size[ind], self.dims[ind])
+
+    def transpose(self, perm = None):
+        if not perm:
+            perm = range(self.ndim)[::-1]
+        if 't' in perm:
+            raise NotImplementedError
+
+        if set(perm).issubset({'x', 'y', 'z'}):
+            perm = [self.dims.index(e) for e in perm]
+
+        shape = tuple([self.shape[i] for i in perm])
+        center = tuple([self.center[i] for i in perm])
+        size = tuple([self.size[i] for i in perm])
+        dims = tuple([self.dims[i] for i in perm])
+        return Image_meta(shape, center, size, dims)
+
+    def save_h5(self, path, mode = 'w'):
+        with h5py.File(path, mode) as fout:
+            group = fout.create_group('image_meta')
+            group.attrs.create('shape', data = self.shape)
+            group.attrs.create('center', data = self.center)
+            group.attrs.create('size', data = self.size)
+            dst = group.create_dataset('dims', (self.ndim,), dtype = dt)
+            for i in range(self.ndim):
+                dst[i] = self.dims[i]
+
+    def load_h5(path):
+        with h5py.File(path, 'r') as fin:
+            group = fin['image_meta']
+            shape = tuple(group.attrs['shape'])
+            center = tuple(group.attrs['center'])
+            size = tuple(group.attrs['size'])
+            dst = group['dims']
+            dims = tuple([])
+            for i in range(np.int32(dst.shape[0])):
+                dims += (dst[i],)
+            return Image_meta(shape, center, size, dims)
+
+    def fmap(self, f):
+        pass
+
+
+class Image_meta_singleton(Image_meta):
+    instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls.instance is None:
+            cls.instance = super().__new__(cls)
+        return cls.instance
+
+
+class Image_meta_2d(Image_meta):
+    def __init__(self, shape = (1, 1), center = (0, 0), size = (1, 1), dims = ('x', 'y')):
+        if len(shape) != 2:
+            raise ValueError(self.__class__, ' is only consistent with 2D case')
+        super().__init__(shape, center, size, dims)
+
+    def meshgrid(self):
+        x = np.arange(self.shape[0]) * self.unit_size[0] + self.center[0] - self.size[0] / 2 + \
+            self.unit_size[0] / 2
+        y = np.arange(self.shape[1]) * self.unit_size[1] + self.center[1] - self.size[1] / 2 + \
+            self.unit_size[1] / 2
+        y1, x1 = np.meshgrid(y, x)
+        return x1, y1
+
+    def theta(self):
+        x1, y1 = self.meshgrid()
+        return np.arctan2(y1, x1)
+
+
+class Image_meta_2d_singleton(Image_meta_singleton, Image_meta_2d):
+    pass
+
+
+class Image_meta_3d(Image_meta):
+    def __init__(self, shape = (1, 1, 1), center = (0, 0, 0), size = (1, 1, 1),
+                 dims = ('x', 'y', 'z')):
+        if len(shape) != 3:
+            raise ValueError(self.__class__, ' is only consistent with 2D case')
+        super().__init__(shape, center, size, dims)
+
+    def meshgrid(self):
+        x = np.arange(self.shape[0]) * self.unit_size[0] + self.center[0] - self.size[0] / 2 + \
+            self.unit_size[0] / 2
+        y = np.arange(self.shape[1]) * self.unit_size[1] + self.center[1] - self.size[1] / 2 + \
+            self.unit_size[1] / 2
+        z = np.arange(self.shape[2]) * self.unit_size[2] + self.center[2] - self.size[2] / 2 + \
+            self.unit_size[2] / 2
+
+        (y1, x1, z1) = np.meshgrid(y, x, z)
+        return x1, y1, z1
+
+
+class Image_meta_3d_singleton(Image_meta_singleton, Image_meta_3d):
+    pass
+
+#
+# class Image:
+#     def __init__(self, data = None, meta: Image_meta = None):
+#         if data is None:
+#             data = np.zeros(meta.shape, dtype = np.float32)
+#         if not isinstance(data, np.ndarray):
+#             raise TypeError('data must be a np.ndarray object')
+#         data.astype(np.float32)
+#
+#         if meta is None:
+#             meta = Image_meta(data.shape)
+#         self._data = data
+#         self.meta = meta
+#
+#
+# @property
+# def data(self):
+#     return self._data
+#
+#
+# def fmap(self, f):
+#     return Image(f(self.data), self.meta)
+#
+#
+# def transpose(self):
+#     return Image(self.meta.transpose(), self._data.T)
+#
+#
+# @property
+# def T(self):
+#     return self.transpose().data
+#
+#
+# def save_h5(self, path):
+#     self.meta.save_h5(path)
+#     with h5py.File(path, 'r+') as fout:
+#         group = fout.create_group('image_data')
+#         group.create_dataset('_data', data = self._data, compression = "gzip")
+#
+#
+# def load_h5(path):
+#     meta = Image_meta.load_h5(path)
+#     with h5py.File(path, 'r') as fin:
+#         dataset = fin['image_data']
+#         _data = np.array(dataset['_data'])
+#         return Image(meta, _data)
+#
