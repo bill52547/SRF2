@@ -91,10 +91,12 @@ class Image_meta(Meta):
     def n_all(self):
         return np.array(self.shape).prod()
 
-    def slice(self, start = None, stop = None, step = 1):
-        ind = slice(start, stop, step)
-        return Image_meta(self.shape[ind], self.center[ind], self.size[ind], self.dims[ind])
-
+    # TODO define slicing
+    # def __getitem__(self, ind):
+    #     print(ind[0])
+    #     print(ind[1])
+    #     return self.data[ind[0], ind[1]]
+    #
     def transpose(self, perm = None):
         if not perm:
             perm = range(self.ndim)[::-1]
@@ -116,12 +118,6 @@ class Image_meta(Meta):
 
 class Image_meta_singleton(Image_meta, Singleton):
     pass
-    # instance = None
-    #
-    # def __new__(cls, *args, **kwargs):
-    #     if cls.instance is None:
-    #         cls.instance = super().__new__(cls)
-    #     return cls.instance
 
 
 class Image_meta_2d(Image_meta):

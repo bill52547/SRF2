@@ -14,4 +14,4 @@ __all__ = ()
 
 from .image_meta import *
 
-# __all__ += image.__all__
+__all__ += image_meta.__all__
