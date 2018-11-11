@@ -1,14 +1,13 @@
 import attr
-import h5py
 import numpy as np
+
+from srf2.core.abstracts import Meta, Singleton
 
 __all__ = ('Image_meta', 'Image_meta_singleton', 'Image_meta_2d', 'Image_meta_2d_singleton',
            'Image_meta_3d', 'Image_meta_3d_singleton',)
-dt = h5py.special_dtype(vlen = str)
-
 
 @attr.s
-class Image_meta(object):
+class Image_meta(Meta):
     _shape = attr.ib(default = (1,) * 3)
     _center = attr.ib(default = (0,) * 3)
     _size = attr.ib(default = (1,) * 3)
@@ -111,39 +110,18 @@ class Image_meta(object):
         dims = tuple([self.dims[i] for i in perm])
         return Image_meta(shape, center, size, dims)
 
-    def save_h5(self, path, mode = 'w'):
-        with h5py.File(path, mode) as fout:
-            group = fout.create_group('image_meta')
-            group.attrs.create('shape', data = self.shape)
-            group.attrs.create('center', data = self.center)
-            group.attrs.create('size', data = self.size)
-            dst = group.create_dataset('dims', (self.ndim,), dtype = dt)
-            for i in range(self.ndim):
-                dst[i] = self.dims[i]
-
-    def load_h5(path):
-        with h5py.File(path, 'r') as fin:
-            group = fin['image_meta']
-            shape = tuple(group.attrs['shape'])
-            center = tuple(group.attrs['center'])
-            size = tuple(group.attrs['size'])
-            dst = group['dims']
-            dims = tuple([])
-            for i in range(np.int32(dst.shape[0])):
-                dims += (dst[i],)
-            return Image_meta(shape, center, size, dims)
-
     def fmap(self, f):
-        pass
+        raise NotImplementedError
 
 
-class Image_meta_singleton(Image_meta):
-    instance = None
-
-    def __new__(cls, *args, **kwargs):
-        if cls.instance is None:
-            cls.instance = super().__new__(cls)
-        return cls.instance
+class Image_meta_singleton(Image_meta, Singleton):
+    pass
+    # instance = None
+    #
+    # def __new__(cls, *args, **kwargs):
+    #     if cls.instance is None:
+    #         cls.instance = super().__new__(cls)
+    #     return cls.instance
 
 
 class Image_meta_2d(Image_meta):
@@ -165,7 +143,7 @@ class Image_meta_2d(Image_meta):
         return np.arctan2(y1, x1)
 
 
-class Image_meta_2d_singleton(Image_meta_singleton, Image_meta_2d):
+class Image_meta_2d_singleton(Image_meta_2d, Singleton):
     pass
 
 
@@ -188,5 +166,5 @@ class Image_meta_3d(Image_meta):
         return x1, y1, z1
 
 
-class Image_meta_3d_singleton(Image_meta_singleton, Image_meta_3d):
+class Image_meta_3d_singleton(Image_meta_3d, Singleton):
     pass

@@ -12,6 +12,6 @@
 
 __all__ = ()
 
-from .image_meta import *
+from .abstracts import *
 
 # __all__ += image.__all__

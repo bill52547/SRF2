@@ -66,23 +66,17 @@ class Test_image_meta:
         assert Image_meta(shape).transpose([2, 0, 1]) == Image_meta(shape).transpose(
             ['z', 'x', 'y'])
 
-    def test_io(self):
-        path = 'tmp_h5'
-        imeta = Image_meta()
-        imeta.save_h5(path)
-        imeta2 = Image_meta.load_h5(path)
-
-        assert imeta == imeta2
+    # def test_io(self):
+    #     path = 'tmp_h5'
+    #     imeta = Image_meta()
+    #     imeta.save_h5(path)
+    #     imeta2 = Image_meta.load_h5(path)
+    #
+    #     assert imeta == imeta2
 
 
 class Test_image_meta_singleton:
-    def test_same_id(self):
-        shape = (1, 2, 3)
-        meta1 = Image_meta_singleton()
-        meta2 = Image_meta_singleton(shape)
-
-        assert id(meta1) == id(meta2)
-        assert meta1.shape == meta2.shape
+    pass
 
 
 class Test_image_meta_2d:
