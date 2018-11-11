@@ -13,5 +13,8 @@
 __all__ = ()
 
 from .image import *
+from .projection import *
+
 
 __all__ += image.__all__
+__all__ += projection.__all__

@@ -66,7 +66,7 @@ class Image:
             path = 'tmp' + self.__class__.__name__ + '.h5'
         self.meta.save_h5(path, mode)
         with h5py.File(path, 'r+') as fout:
-            group = fout.create_group('image_data')
+            group = fout.create_group('Image_data')
             group.create_dataset('_data', data = self.data, compression = "gzip")
 
     @classmethod
@@ -75,7 +75,7 @@ class Image:
             path = 'tmp' + cls.__name__ + '.h5'
         meta = Image_meta.load_h5(path)
         with h5py.File(path, 'r') as fin:
-            dataset = fin['image_data']
+            dataset = fin['Image_data']
             data = np.array(dataset['_data'])
             return cls(data, meta)
 

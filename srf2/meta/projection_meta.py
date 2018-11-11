@@ -15,7 +15,9 @@ import numpy as np
 
 from srf2.core.abstracts import *
 
-__all__ = ('Projection_meta', 'Listmode_projection_meta', 'Sinogram_projection_meta',)
+__all__ = ('Projection_meta', 'Listmode_projection_meta', 'Sinogram_projection_meta',
+           'Projection_meta_singleton', 'Listmode_projection_meta_singleton',
+           'Sinogram_projection_meta_singleton',)
 
 
 @attr.s
@@ -119,3 +121,15 @@ class Sinogram_projection_meta(Projection_meta):
             return self
         else:
             raise NotImplementedError
+
+
+class Projection_meta_singleton(Projection_meta, Singleton):
+    pass
+
+
+class Sinogram_projection_meta_singleton(Sinogram_projection_meta, Singleton):
+    pass
+
+
+class Listmode_projection_meta_singleton(Listmode_projection_meta, Singleton):
+    pass
