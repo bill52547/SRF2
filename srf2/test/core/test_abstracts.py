@@ -18,6 +18,11 @@ class Test_meta:
         imeta2 = Imeta.load_h5('tmp_meta.h5')
         assert imeta == imeta2
 
+        imeta = Imeta((3, 4))
+        imeta.save_h5('tmp_meta.h5')
+        imeta2 = Imeta.load_h5('tmp_meta.h5')
+        assert imeta == imeta2
+
 
 class Test_singleton:
     def test_same_id(self):

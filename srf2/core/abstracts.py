@@ -32,6 +32,7 @@ class Meta(object):
         return self.__dict__ == other.__dict__
 
     def save_h5(self, path = None, mode = 'w'):
+        from numbers import Number
         group_name = self.__class__.__name__
         attrs_dict = self.__dict__
         if path is None:
@@ -39,12 +40,13 @@ class Meta(object):
         with h5py.File(path, mode) as fout:
             group = fout.create_group(group_name)
             for key, value in attrs_dict.items():
-                if isinstance(value[0], str):
+                if not isinstance(value, Number) and isinstance(value[0], str):
                     value = [12300111] + _str_to_ascii(value)
                 group.attrs.create(key, data = value)
 
     @classmethod
     def load_h5(cls, path = None):
+        from numbers import Number
         instance = cls()
         group_name = instance.__class__.__name__
         attrs_dict = instance.__dict__
@@ -55,10 +57,12 @@ class Meta(object):
             args = ()
             for key in attrs_dict.keys():
                 tmp = group.attrs[key]
-                if tmp[0] == 12300111:
-                    tmp = _ascii_to_str(tmp[1:])
-                args += tuple(tmp),
-            print(args)
+                if isinstance(tmp, Number):
+                    args += (tmp,)
+                else:
+                    if tmp[0] == 12300111:
+                        tmp = _ascii_to_str(tmp[1:])
+                    args += tuple(tmp),
             return cls(*args)
 
 
