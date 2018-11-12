@@ -123,6 +123,13 @@ class Image_meta(Meta):
         return Image_meta(*f(tuple(self.shape), tuple(self.center), tuple(self.size),
                              tuple(self.dims)))
 
+    def locate(self, pos = (0, 0, 0)):
+        result = [0] * self.ndim
+        for k in range(self.ndim):
+            result[k] = (pos[k] - self.center[k] + self.size[k] / 2) / \
+                        self.unit_size[k] - 0.5
+        return tuple(result)
+
     def transpose(self, perm = None):
         if not perm:
             perm = range(self.ndim)[::-1]

@@ -49,6 +49,11 @@ class Test_image_meta:
         assert Image_meta((1, 2, 1), (0, 0, 1.5), (7, 8, 3)) == Image_meta(shape, center,
                                                                            size)[:, :, 0:1]
 
+    def test_locate(self):
+        assert Image_meta().locate((0, 0, 0)) == (0, 0, 0)
+        assert Image_meta().locate((0, 0, 0.5)) == (0, 0, 0.5)
+        assert Image_meta().locate((-1, 0, 0.5)) == (-1, 0, 0.5)
+
     def test_transpose(self):
         shape = (1, 2, 3)
         dims2 = ('z', 'y', 'x')
