@@ -38,23 +38,16 @@ class Test_image_meta:
         assert meta.n_x == meta.n_y == meta.n_t == 1
         assert meta.n_z == 2
 
-    #
-    # def test_slice(self):
-    #     assert Image_meta() == Image_meta().slice()
-    #
-    #     shape = (1, 1)
-    #     center = (0, 0)
-    #     size = (1, 1)
-    #     dims = ('x', 'y')
-    #
-    #     assert Image_meta(shape, center, size, dims) == Image_meta().slice(0, 2)
-    #
-    #     shape2 = (1, 1)
-    #     center2 = (0, 0)
-    #     size2 = (1, 1)
-    #     dims2 = ('x', 'z')
-    #
-    #     assert Image_meta(shape2, center2, size2, dims2) == Image_meta().slice(0, None, 2)
+    def test_slice(self):
+        assert Image_meta() == Image_meta()[:, :, :]
+
+        shape = (1, 2, 3)
+        center = (0, 0, 4.5)
+        size = (7, 8, 9)
+        dims = ('x', 'y', 'z')
+
+        assert Image_meta((1, 2, 1), (0, 0, 1.5), (7, 8, 3)) == Image_meta(shape, center,
+                                                                           size)[:, :, 0:1]
 
     def test_transpose(self):
         shape = (1, 2, 3)
@@ -67,17 +60,9 @@ class Test_image_meta:
         assert Image_meta(shape).transpose([2, 0, 1]) == Image_meta(shape).transpose(
             ['z', 'x', 'y'])
 
-    # def test_io(self):
-    #     path = 'tmp_h5'
-    #     imeta = Image_meta()
-    #     imeta.save_h5(path)
-    #     imeta2 = Image_meta.load_h5(path)
-    #
-    #     assert imeta == imeta2
-
 
 class Test_image_meta_singleton:
-    pass
+    meta = Image_meta_singleton()
 
 
 class Test_image_meta_2d:
@@ -125,3 +110,9 @@ class Test_image_meta_3d:
 
 class Test_image_meta_3d_singleton:
     meta = Image_meta_3d_singleton()
+
+
+class Test_image_meta_2d_3d_singleton():
+    meta2 = Image_meta_2d_singleton()
+    meta3 = Image_meta_3d_singleton()
+    assert id(meta2) != id(meta3)

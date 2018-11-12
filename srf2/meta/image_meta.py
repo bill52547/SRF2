@@ -3,8 +3,10 @@ import numpy as np
 
 from srf2.core.abstracts import Meta, Singleton
 
-__all__ = ('Image_meta', 'Image_meta_singleton', 'Image_meta_2d', 'Image_meta_2d_singleton',
-           'Image_meta_3d', 'Image_meta_3d_singleton',)
+__all__ = (
+    'Image_meta', 'Image_meta_2d', 'Image_meta_3d',
+    'Image_meta_singleton', 'Image_meta_2d_singleton', 'Image_meta_3d_singleton',)
+
 
 @attr.s
 class Image_meta(Meta):
@@ -91,12 +93,44 @@ class Image_meta(Meta):
     def n_all(self):
         return np.array(self.shape).prod()
 
-    # TODO define slicing
-    # def __getitem__(self, ind):
-    #     print(ind[0])
-    #     print(ind[1])
-    #     return self.data[ind[0], ind[1]]
-    #
+    def __getitem__(self, ind):
+        def slice_kernel(ind):
+            def kernel(shape, center, size, dims):
+                from sys import maxsize
+                # if len(ind) != len(shape):
+                #     raise ValueError('Slice have different dimension with current image meta')
+                shape = list(shape)
+                center = list(center)
+                size = list(size)
+
+                for k in range(len(shape)):
+                    start, stop, step = ind[k].start, ind[k].stop, ind[k].step
+
+                    if step is None:
+                        step = 1
+                    if stop is None:
+                        stop = maxsize
+                    if start is None:
+                        start = -maxsize
+                    if stop > shape[k]:
+                        stop = shape[k]
+                    if start < 0:
+                        start = 0
+                    rang = range(start, stop, step)
+                    unit_size = size[k] / shape[k]
+                    center[k] = (rang[0] + rang[-1] + 1) / 2 * unit_size + center[k] - size[k] / 2
+                    shape[k] = len(rang)
+                    size[k] = shape[k] * unit_size * step
+                return tuple(shape), tuple(center), tuple(size), dims
+
+            return kernel
+
+        return self.map(slice_kernel(ind))
+
+    def map(self, f):
+        return Image_meta(*f(tuple(self.shape), tuple(self.center), tuple(self.size),
+                             tuple(self.dims)))
+
     def transpose(self, perm = None):
         if not perm:
             perm = range(self.ndim)[::-1]
@@ -116,15 +150,15 @@ class Image_meta(Meta):
         raise NotImplementedError
 
 
-class Image_meta_singleton(Image_meta, Singleton):
-    pass
-
-
 class Image_meta_2d(Image_meta):
     def __init__(self, shape = (1, 1), center = (0, 0), size = (1, 1), dims = ('x', 'y')):
         if len(shape) != 2:
             raise ValueError(self.__class__, ' is only consistent with 2D case')
         super().__init__(shape, center, size, dims)
+
+    def map(self, f):
+        return Image_meta_2d(
+            *f(tuple(self.shape), tuple(self.center), tuple(self.size), tuple(self.dims)))
 
     def meshgrid(self):
         x = np.arange(self.shape[0]) * self.unit_size[0] + self.center[0] - self.size[0] / 2 + \
@@ -138,9 +172,11 @@ class Image_meta_2d(Image_meta):
         x1, y1 = self.meshgrid()
         return np.arctan2(y1, x1)
 
-
-class Image_meta_2d_singleton(Image_meta_2d, Singleton):
-    pass
+    def polar_meshgrid(self):
+        x1, y1 = self.meshgrid()
+        theta = self.theta()
+        radius = np.sqrt(x1 ** 2 + y1 ** 2)
+        return radius, theta
 
 
 class Image_meta_3d(Image_meta):
@@ -149,6 +185,10 @@ class Image_meta_3d(Image_meta):
         if len(shape) != 3:
             raise ValueError(self.__class__, ' is only consistent with 2D case')
         super().__init__(shape, center, size, dims)
+
+    def map(self, f):
+        return Image_meta_3d(
+            *f(tuple(self.shape), tuple(self.center), tuple(self.size), tuple(self.dims)))
 
     def meshgrid(self):
         x = np.arange(self.shape[0]) * self.unit_size[0] + self.center[0] - self.size[0] / 2 + \
@@ -160,6 +200,24 @@ class Image_meta_3d(Image_meta):
 
         (y1, x1, z1) = np.meshgrid(y, x, z)
         return x1, y1, z1
+
+    def theta(self):
+        x1, y1, _ = self.meshgrid()
+        return np.arctan2(y1, x1)
+
+    def cylindral_meshgrid(self):
+        x1, y1, z1 = self.meshgrid()
+        theta = self.theta()
+        radius = np.sqrt(x1 ** 2 + y1 ** 2)
+        return radius, theta, z1
+
+
+class Image_meta_singleton(Image_meta, Singleton):
+    pass
+
+
+class Image_meta_2d_singleton(Image_meta_2d, Singleton):
+    pass
 
 
 class Image_meta_3d_singleton(Image_meta_3d, Singleton):
