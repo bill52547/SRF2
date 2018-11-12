@@ -50,6 +50,10 @@ class Image:
     def fmap(self, f):
         return Image(f(self.data), self.meta)
 
+    def normalize(self):
+        sum_data = np.sum(self.data)
+        return Image(self.data / sum_data, self.meta)
+
     def transpose(self, perm = None):
         if perm is None:
             perm = np.arange(self.meta.ndim)[::-1]
@@ -59,7 +63,17 @@ class Image:
 
         return Image(self.data.transpose(perm), self.meta.transpose(perm))
 
-    # TODO slicing operator, accoridng to image_meta
+    def map(self, f):
+        return Image(*f(self.data, self.meta))
+
+    def __getitem__(self, item):
+        def slice_kernel(item):
+            def kernel(data, meta):
+                return data[item], meta[item]
+
+            return kernel
+
+        return self.map(slice_kernel(item))
 
     def save_h5(self, path = None, mode = 'w'):
         if path is None:
@@ -86,9 +100,15 @@ class Image_2d(Image):
         if meta.ndim != 2:
             raise ValueError(self.__class__.__name__, ' is only consistent with 2D case')
 
+    def map(self, f):
+        return Image_3d(*f(self.data, self.meta))
+
 
 class Image_3d(Image):
     def __init__(self, data = None, meta: Image_meta_3d = None):
         super().__init__(data, meta)
         if meta.ndim != 3:
             raise ValueError(self.__class__.__name__, ' is only consistent with 2D case')
+
+    def map(self, f):
+        return Image_2d(*f(self.data, self.meta))

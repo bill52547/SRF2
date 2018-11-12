@@ -96,7 +96,6 @@ class Image_meta(Meta):
     def __getitem__(self, ind):
         def slice_kernel(ind):
             def kernel(shape, center, size, dims):
-                from sys import maxsize
                 # if len(ind) != len(shape):
                 #     raise ValueError('Slice have different dimension with current image meta')
                 shape = list(shape)
@@ -108,15 +107,8 @@ class Image_meta(Meta):
 
                     if step is None:
                         step = 1
-                    if stop is None:
-                        stop = maxsize
-                    if start is None:
-                        start = -maxsize
-                    if stop > shape[k]:
-                        stop = shape[k]
-                    if start < 0:
-                        start = 0
-                    rang = range(start, stop, step)
+
+                    rang = range(shape[k])[start: stop: step]
                     unit_size = size[k] / shape[k]
                     center[k] = (rang[0] + rang[-1] + 1) / 2 * unit_size + center[k] - size[k] / 2
                     shape[k] = len(rang)

@@ -35,6 +35,14 @@ class Test_image:
         image2 = Image.load_h5()
         assert image == image2
 
+    def test_slice(self):
+        data = np.random.random((2, 3, 4))
+        meta = Image_meta((2, 3, 4), (0, 0, 0), (2, 3, 4))
+        image = Image(data, meta)
+        image2 = Image(data[:, :, 1:-1], Image_meta((2, 3, 2), (0, 0, 0), (2, 3, 2)))
+
+        assert image[:, :, 1:-1] == image2
+
 
 class Test_image_2d:
     pass
