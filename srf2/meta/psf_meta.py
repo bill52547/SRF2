@@ -28,7 +28,7 @@ class PSF_meta_3d(Meta):
     def __init__(self, mu: np.ndarray = np.array([]), sigma: np.ndarray = np.array([])):
         if mu.shape != sigma.shape:
             raise ValueError('mu and sigma should have same shape')
-        if mu.shape[1] != 3:
+        if mu.size > 0 and mu.shape[1] != 3:
             raise ValueError('Only support 3D case in this class. Please go to PSF_meta_2d')
         self._mu = mu
         self._sigma = sigma
@@ -52,13 +52,18 @@ class PSF_meta_3d(Meta):
                             int(iy1 + rang / image.meta.unit_size[1]))
             slice_z = slice(int(iz1 - rang / image.meta.unit_size[2]),
                             int(iz1 + rang / image.meta.unit_size[2]))
+
             x1, y1, z1 = image.meta.meshgrid([slice_x, slice_y, slice_z])
             x1, y1, z1 = x1.flatten() - pos[0], y1.flatten() - pos[1], z1.flatten() - pos[2]
-
+            print(ix1, iy1, iz1)
             popt, pcov = opt.curve_fit(func, (x1, y1, z1, 0),
                                        image[slice_x, slice_y, slice_z].normalize().data.flatten())
-            self._mu = np.vstack(self._mu, np.array(pos))
-            self._sigma = np.vstack(self._sigma, np.array(popt[:3]))
+            if self._mu.size == 0:
+                self._mu = np.array(pos)
+                self._sigma = np.array(popt[:3])
+            else:
+                self._mu = np.vstack((self._mu, np.array(pos)))
+                self._sigma = np.vstack((self._sigma, np.array(popt[:3])))
         else:
             raise NotImplementedError
 

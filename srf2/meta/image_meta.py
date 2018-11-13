@@ -135,19 +135,7 @@ class Image_meta(Meta):
         return tuple(result)
 
     def transpose(self, perm = None):
-        if not perm:
-            perm = range(self.ndim)[::-1]
-        if 't' in perm:
-            raise NotImplementedError
-
-        if set(perm).issubset({'x', 'y', 'z'}):
-            perm = [self.dims.index(e) for e in perm]
-
-        shape = tuple([self.shape[i] for i in perm])
-        center = tuple([self.center[i] for i in perm])
-        size = tuple([self.size[i] for i in perm])
-        dims = tuple([self.dims[i] for i in perm])
-        return Image_meta(shape, center, size, dims)
+        pass
 
     def fmap(self, f):
         raise NotImplementedError
@@ -180,6 +168,21 @@ class Image_meta_2d(Image_meta):
         theta = self.theta()
         radius = np.sqrt(x1 ** 2 + y1 ** 2)
         return radius, theta
+
+    def transpose(self, perm = None):
+        if not perm:
+            perm = range(self.ndim)[::-1]
+        if 't' in perm:
+            raise NotImplementedError
+
+        if set(perm).issubset({'x', 'y', 'z'}):
+            perm = [self.dims.index(e) for e in perm]
+
+        shape = tuple([self.shape[i] for i in perm])
+        center = tuple([self.center[i] for i in perm])
+        size = tuple([self.size[i] for i in perm])
+        dims = tuple([self.dims[i] for i in perm])
+        return Image_meta_2d(shape, center, size, dims)
 
 
 class Image_meta_3d(Image_meta):
@@ -220,6 +223,21 @@ class Image_meta_3d(Image_meta):
         theta = self.theta()
         radius = np.sqrt(x1 ** 2 + y1 ** 2)
         return radius, theta, z1
+
+    def transpose(self, perm = None):
+        if not perm:
+            perm = range(self.ndim)[::-1]
+        if 't' in perm:
+            raise NotImplementedError
+
+        if set(perm).issubset({'x', 'y', 'z'}):
+            perm = [self.dims.index(e) for e in perm]
+
+        shape = tuple([self.shape[i] for i in perm])
+        center = tuple([self.center[i] for i in perm])
+        size = tuple([self.size[i] for i in perm])
+        dims = tuple([self.dims[i] for i in perm])
+        return Image_meta_3d(shape, center, size, dims)
 
 
 class Image_meta_singleton(Image_meta, Singleton):

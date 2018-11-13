@@ -101,14 +101,30 @@ class Image_2d(Image):
             raise ValueError(self.__class__.__name__, ' is only consistent with 2D case')
 
     def map(self, f):
-        return Image_3d(*f(self.data, self.meta))
+        return Image_2d(*f(self.data, self.meta))
 
 
 class Image_3d(Image):
     def __init__(self, data = None, meta: Image_meta_3d = None):
-        super().__init__(data, meta)
-        if meta.ndim != 3:
-            raise ValueError(self.__class__.__name__, ' is only consistent with 2D case')
+        if meta is None and data is None:
+            meta = Image_meta_3d()
+            data = np.zeros(meta.shape, dtype = np.float32)
+
+        if data is None:
+            data = np.zeros(meta.shape, dtype = np.float32)
+
+        if meta is None:
+            meta = Image_meta_3d(data.shape)
+
+        if not isinstance(data, np.ndarray):
+            raise TypeError('data must be a np.ndarray object')
+
+        if data.shape != meta.shape:
+            raise ValueError('data must has same shape with its meta')
+
+        data.astype(np.float32)
+        self._data = data
+        self._meta = meta
 
     def map(self, f):
-        return Image_2d(*f(self.data, self.meta))
+        return Image_3d(*f(self.data, self.meta))
