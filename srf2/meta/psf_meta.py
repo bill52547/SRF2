@@ -14,7 +14,6 @@ import numpy as np
 import scipy.interpolate as interp
 import scipy.optimize as opt
 from scipy import sparse
-from tqdm import tqdm
 
 from srf2.core.abstracts import Meta
 from srf2.data.image import *
@@ -55,7 +54,6 @@ class PSF_meta_3d(Meta):
 
             x1, y1, z1 = image.meta.meshgrid([slice_x, slice_y, slice_z])
             x1, y1, z1 = x1.flatten() - pos[0], y1.flatten() - pos[1], z1.flatten() - pos[2]
-            print(ix1, iy1, iz1)
             popt, pcov = opt.curve_fit(func, (x1, y1, z1, 0),
                                        image[slice_x, slice_y, slice_z].normalize().data.flatten())
             if self._mu.size == 0:
@@ -83,6 +81,7 @@ class PSF_3d:
         self._image_meta = image_meta
         self._matrix_xy = sparse.csr_matrix((image_meta.n_xy, image_meta.n_xy), dtype = np.float32)
         self._matrix_z = sparse.csr_matrix((image_meta.n_z, image_meta.n_z), dtype = np.float32)
+        self.generate_matrix()
 
     @property
     def meta(self):
@@ -100,59 +99,66 @@ class PSF_3d:
     def matrix_z(self):
         return self._matrix_z
 
-    @property
     def matrix_xy_full(self):
-        print('Generating full PSF_xy matrix')
         lil_xy = sparse.lil_matrix((self.image_meta.n_all, self.image_meta.n_all),
                                    dtype = np.float32)
         row, col = self.matrix_xy.nonzero()
         data = self.matrix_xy.data
-        for iz in tqdm(np.arange(self.image_meta.n_z)):
+        for iz in np.arange(self.image_meta.n_z):
             lil_xy[row * self.image_meta.n_z + iz, col * self.image_meta.n_z + iz] = data
         return lil_xy.tocsr()
 
-    @property
     def matrix_z_full(self):
-        print('Generating full PSF_z matrix')
         lil_z = sparse.lil_matrix((self.image_meta.n_all, self.image_meta.n_all),
                                   dtype = np.float32)
         row, col = self.matrix_z.nonzero()
         data = self.matrix_z.data
-        for ix in tqdm(np.arange(self.image_meta.n_x)):
+        for ix in np.arange(self.image_meta.n_x):
             for iy in np.arange(self.image_meta.n_y):
                 ind = iy + ix * self.image_meta.n_y
                 lil_z[row + self.image_meta.n_z * ind, col + self.image_meta.n_z * ind] = data
         return lil_z.tocsr()
 
-    @property
     def matrix(self):
         print('Generating full PSF matrix')
         return self.matrix_xy_full() * self.matrix_z_full()
 
     def generate_matrix(self):
-        x1, y1, z1 = self.image_meta.meshgrid()
+        x1, y1 = self.image_meta.meshgrid_2d()
+        z1 = np.arange(self.image_meta.n_z)
         R1 = np.sqrt(x1 ** 2 + y1 ** 2)
         z1 = np.abs(z1)
-        R0 = np.sqrt(self.meta.mu[0] ** 2 + self.meta.mu[1] ** 2)
-        z0 = np.abs(self.meta.mu[2])
-        fsigx = interp.interp1d(R0, self.meta.sigma[:, 0], kind = 'quadratic', fill_value =
-        'extrapolate')
-        fsigy = interp.interp1d(R0, self.meta.sigma[:, 1], kind = 'quadratic', fill_value =
-        'extrapolate')
-        fsigz = interp.interp1d(z0, self.meta.sigma[:, 2], kind = 'quadratic', fill_value =
-        'extrapolate')
+        R0 = np.sqrt(self.meta.mu[:, 0] ** 2 + self.meta.mu[:, 1] ** 2)
+        z0 = np.abs(self.meta.mu[:, 2])
 
-        sigma_x, sigma_y, sigma_z = fsigx(R1), fsigy(R1), fsigz(z1)
+        ind_xy = np.where(R0 > 0)[0]
+        ind_z = np.where(z0 > 0)[0]
+
+        if ind_xy.size > 1:
+            fsigx = interp.interp1d(R0[ind_xy], self.meta.sigma[ind_xy, 0], kind = 'quadratic',
+                                    fill_value = 'extrapolate')
+            fsigy = interp.interp1d(R0[ind_xy], self.meta.sigma[ind_xy, 1], kind = 'quadratic',
+                                    fill_value = 'extrapolate')
+            sigma_x, sigma_y = fsigx(R1), fsigy(R1)
+        else:
+            sigma_x = np.mean(self.meta.sigma[:, 0]) * np.ones(R1.shape)
+            sigma_y = np.mean(self.meta.sigma[:, 1]) * np.ones(R1.shape)
+
+        if ind_z.size > 1:
+            fsigz = interp.interp1d(z0[ind_z], self.meta.sigma[ind_z, 2], kind = 'quadratic',
+                                    fill_value = 'extrapolate')
+            sigma_z = fsigz(z1)
+        else:
+            sigma_z = np.mean(self.meta.sigma[:, 2]) * np.ones(z1.shape)
+
         lil_matrix_xy = sparse.lil_matrix((self.image_meta.n_xy, self.image_meta.n_xy),
                                           dtype = np.float32)
         lil_matrix_z = sparse.lil_matrix((self.image_meta.n_z, self.image_meta.n_z),
                                          dtype = np.float32)
         theta = self.image_meta.theta()
-        print('Generating PSF matrix xy')
-        for ix in tqdm(np.arange(self.image_meta.n_x)):
+        for ix in np.arange(self.image_meta.n_x):
             for iy in np.arange(self.image_meta.n_y):
                 ind = iy + ix * self.image_meta.n_y
-
                 img_tmp = _gaussian_2d((x1 - x1[ix, iy], y1 - y1[ix, iy], theta[ix, iy]),
                                        sigma_x[ix, iy], sigma_y[ix, iy])
                 gk = img_tmp.flatten()
@@ -162,12 +168,11 @@ class PSF_3d:
                 lil_matrix_xy[row, col] = data
         self._matrix_xy = lil_matrix_xy.tocsr()
 
-        print('Generating PSF matrix z')
-        for iz in tqdm(np.arange(self.image_meta.n_z)):
+        for iz in np.arange(self.image_meta.n_z):
             img_tmp = _gaussian_1d(z1 - z1[iz], sigma_z[iz])
             gk = img_tmp.flatten()
             row = np.where(gk > 0)[0]
-            col = ind * np.ones(row.shape)
+            col = iz * np.ones(row.shape)
             data = gk[row]
             lil_matrix_z[row, col] = data
 
