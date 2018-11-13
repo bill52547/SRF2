@@ -112,6 +112,10 @@ class Test_image_meta_3d:
         assert meta.meshgrid()[0].shape == meta.meshgrid()[1].shape == meta.meshgrid()[
             2].shape == meta.shape
 
+        meta = Image_meta_3d((3, 4, 5))
+        assert meta.meshgrid([slice(0, 3, 1), slice(0, 4, 1), slice(1, 3, None)])[0].shape == (
+            3, 4, 2)
+
 
 class Test_image_meta_3d_singleton:
     meta = Image_meta_3d_singleton()

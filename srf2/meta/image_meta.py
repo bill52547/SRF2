@@ -82,6 +82,10 @@ class Image_meta(Meta):
         return self._shape[self._dims.index('y')] if 'y' in self._dims else 1
 
     @property
+    def n_xy(self):
+        return self.n_x * self.n_y
+
+    @property
     def n_z(self):
         return self._shape[self._dims.index('z')] if 'z' in self._dims else 1
 
@@ -189,14 +193,21 @@ class Image_meta_3d(Image_meta):
         return Image_meta_3d(
             *f(tuple(self.shape), tuple(self.center), tuple(self.size), tuple(self.dims)))
 
-    def meshgrid(self):
-        x = np.arange(self.shape[0]) * self.unit_size[0] + self.center[0] - self.size[0] / 2 + \
-            self.unit_size[0] / 2
-        y = np.arange(self.shape[1]) * self.unit_size[1] + self.center[1] - self.size[1] / 2 + \
-            self.unit_size[1] / 2
-        z = np.arange(self.shape[2]) * self.unit_size[2] + self.center[2] - self.size[2] / 2 + \
-            self.unit_size[2] / 2
-
+    def meshgrid(self, slice = None):
+        if slice is None:
+            x = np.arange(self.shape[0]) * self.unit_size[0] + self.center[0] - self.size[0] / 2 + \
+                self.unit_size[0] / 2
+            y = np.arange(self.shape[1]) * self.unit_size[1] + self.center[1] - self.size[1] / 2 + \
+                self.unit_size[1] / 2
+            z = np.arange(self.shape[2]) * self.unit_size[2] + self.center[2] - self.size[2] / 2 + \
+                self.unit_size[2] / 2
+        else:
+            x = np.arange(self.shape[0])[slice[0]] * self.unit_size[0] + self.center[0] - self.size[
+                0] / 2 + self.unit_size[0] / 2
+            y = np.arange(self.shape[1])[slice[1]] * self.unit_size[1] + self.center[1] - self.size[
+                1] / 2 + self.unit_size[1] / 2
+            z = np.arange(self.shape[2])[slice[2]] * self.unit_size[2] + self.center[2] - self.size[
+                2] / 2 + self.unit_size[2] / 2
         (y1, x1, z1) = np.meshgrid(y, x, z)
         return x1, y1, z1
 
