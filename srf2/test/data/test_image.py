@@ -1,7 +1,7 @@
 import numpy as np
 
-from srf2.data import *
-from srf2.meta import *
+from srf2.data.image import *
+from srf2.meta.image_meta import *
 
 
 class Test_image:
@@ -19,14 +19,6 @@ class Test_image:
 
         assert meta == image.meta
         assert np.array_equal(data, image.data)
-
-    def test_transpose(self):
-        data = np.random.random((2, 3, 4))
-        meta = Image_meta(data.shape)
-        image = Image(data, meta)
-        assert np.array_equal(image.data.transpose([1, 2, 0]), image.transpose([1, 2, 0]).data)
-        assert np.array_equal(image.data.transpose([1, 2, 0]),
-                              image.transpose(['y', 'z', 'x']).data)
 
     def test_io(self):
         data = np.random.random((2, 3, 4))
@@ -49,4 +41,10 @@ class Test_image_2d:
 
 
 class Test_image_3d:
-    pass
+    def test_transpose(self):
+        data = np.random.random((2, 3, 4))
+        meta = Image_meta_3d(data.shape)
+        image = Image_3d(data, meta)
+        assert np.array_equal(image.data.transpose([1, 2, 0]), image.transpose([1, 2, 0]).data)
+        assert np.array_equal(image.data.transpose([1, 2, 0]),
+                              image.transpose(['y', 'z', 'x']).data)

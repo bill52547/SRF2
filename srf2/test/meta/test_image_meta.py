@@ -55,15 +55,7 @@ class Test_image_meta:
         assert Image_meta().locate((-1, 0, 0.5)) == (-1, 0, 0.5)
 
     def test_transpose(self):
-        shape = (1, 2, 3)
-        dims2 = ('z', 'y', 'x')
-        dims3 = ('z', 'x', 'y')
-
-        assert Image_meta(shape).transpose() == Image_meta((3, 2, 1), (0, 0, 0), (1, 1, 1), dims2)
-        assert Image_meta(shape).transpose([2, 0, 1]) == Image_meta((3, 1, 2), (0, 0, 0), (1, 1, 1),
-                                                                    dims3)
-        assert Image_meta(shape).transpose([2, 0, 1]) == Image_meta(shape).transpose(
-            ['z', 'x', 'y'])
+        pass
 
 
 class Test_image_meta_singleton:
@@ -115,6 +107,23 @@ class Test_image_meta_3d:
         meta = Image_meta_3d((3, 4, 5))
         assert meta.meshgrid([slice(0, 3, 1), slice(0, 4, 1), slice(1, 3, None)])[0].shape == (
             3, 4, 2)
+
+    def test_transpose(self):
+        shape = (1, 2, 3)
+        dims2 = ('z', 'y', 'x')
+        dims3 = ('z', 'x', 'y')
+
+        assert Image_meta_3d(shape).transpose() == Image_meta_3d((3, 2, 1), (0, 0, 0), (1, 1, 1),
+                                                                 dims2)
+        assert Image_meta_3d(shape).transpose([2, 0, 1]) == Image_meta_3d((3, 1, 2), (0, 0, 0),
+                                                                          (1, 1, 1),
+                                                                          dims3)
+        assert Image_meta_3d(shape).transpose([2, 0, 1]) == Image_meta_3d(shape).transpose(
+            ['z', 'x', 'y'])
+
+    def test_meshgrid_2d(self):
+        meta = Image_meta_3d((3, 4, 5))
+        assert meta.meshgrid_2d()[0].shape == meta.meshgrid_2d()[1].shape == meta.shape[:2]
 
 
 class Test_image_meta_3d_singleton:

@@ -97,11 +97,17 @@ class Image_meta(Meta):
     def n_all(self):
         return np.array(self.shape).prod()
 
+    def map(self, f):
+        # raise NotImplementedError
+        return Image_meta(*f(tuple(self.shape), tuple(self.center), tuple(self.size),
+                             tuple(self.dims)))
+
+    def meshgrid(self):
+        raise NotImplementedError
+
     def __getitem__(self, ind):
         def slice_kernel(ind):
             def kernel(shape, center, size, dims):
-                # if len(ind) != len(shape):
-                #     raise ValueError('Slice have different dimension with current image meta')
                 shape = list(shape)
                 center = list(center)
                 size = list(size)
@@ -123,21 +129,15 @@ class Image_meta(Meta):
 
         return self.map(slice_kernel(ind))
 
-    def map(self, f):
-        return Image_meta(*f(tuple(self.shape), tuple(self.center), tuple(self.size),
-                             tuple(self.dims)))
-
-    def locate(self, pos = (0, 0, 0)):
+    def locate(self, pos = None):
+        if pos is None:
+            pos = (0,) * self.ndim
         result = [0] * self.ndim
         for k in range(self.ndim):
-            result[k] = (pos[k] - self.center[k] + self.size[k] / 2) / \
-                        self.unit_size[k] - 0.5
+            result[k] = (pos[k] - self.center[k] + self.size[k] / 2) / self.unit_size[k] - 0.5
         return tuple(result)
 
     def transpose(self, perm = None):
-        pass
-
-    def fmap(self, f):
         raise NotImplementedError
 
 
@@ -151,11 +151,18 @@ class Image_meta_2d(Image_meta):
         return Image_meta_2d(
             *f(tuple(self.shape), tuple(self.center), tuple(self.size), tuple(self.dims)))
 
-    def meshgrid(self):
-        x = np.arange(self.shape[0]) * self.unit_size[0] + self.center[0] - self.size[0] / 2 + \
-            self.unit_size[0] / 2
-        y = np.arange(self.shape[1]) * self.unit_size[1] + self.center[1] - self.size[1] / 2 + \
-            self.unit_size[1] / 2
+    def meshgrid(self, slice = None):
+        if slice is None:
+            x = np.arange(self.shape[0]) * self.unit_size[0] + self.center[0] - self.size[0] / 2 + \
+                self.unit_size[0] / 2
+            y = np.arange(self.shape[1]) * self.unit_size[1] + self.center[1] - self.size[1] / 2 + \
+                self.unit_size[1] / 2
+        else:
+            x = np.arange(self.shape[0])[slice[0]] * self.unit_size[0] + self.center[0] - self.size[
+                0] / 2 + self.unit_size[0] / 2
+            y = np.arange(self.shape[1])[slice[1]] * self.unit_size[1] + self.center[1] - self.size[
+                1] / 2 + self.unit_size[1] / 2
+
         y1, x1 = np.meshgrid(y, x)
         return x1, y1
 
@@ -214,8 +221,31 @@ class Image_meta_3d(Image_meta):
         (y1, x1, z1) = np.meshgrid(y, x, z)
         return x1, y1, z1
 
+    def meshgrid_2d(self, slice = None):
+        if slice is None:
+            x = np.arange(self.shape[0]) * self.unit_size[0] + self.center[0] - self.size[0] / 2 + \
+                self.unit_size[0] / 2
+            y = np.arange(self.shape[1]) * self.unit_size[1] + self.center[1] - self.size[1] / 2 + \
+                self.unit_size[1] / 2
+        else:
+            x = np.arange(self.shape[0])[slice[0]] * self.unit_size[0] + self.center[0] - self.size[
+                0] / 2 + self.unit_size[0] / 2
+            y = np.arange(self.shape[1])[slice[1]] * self.unit_size[1] + self.center[1] - self.size[
+                1] / 2 + self.unit_size[1] / 2
+        (y1, x1) = np.meshgrid(y, x)
+        return x1, y1
+
+    def meshgrid_1d(self, slice = None):
+        if slice is None:
+            z = np.arange(self.shape[2]) * self.unit_size[2] + self.center[2] - self.size[2] / 2 + \
+                self.unit_size[2] / 2
+        else:
+            z = np.arange(self.shape[2])[slice[2]] * self.unit_size[2] + self.center[2] - self.size[
+                2] / 2 + self.unit_size[2] / 2
+        return z
+
     def theta(self):
-        x1, y1, _ = self.meshgrid()
+        x1, y1 = self.meshgrid_2d()
         return np.arctan2(y1, x1)
 
     def cylindral_meshgrid(self):

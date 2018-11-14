@@ -26,10 +26,20 @@ class Test_meta:
 
 class Test_singleton:
     def test_same_id(self):
-        imeta = Meta()
-        imeta2 = Meta()
+        class Imeta(Meta):
+            def __init__(self, a = (1, 2), b = ('x', 'y')):
+                self.a = a
+                self.b = b
+
+        imeta = Imeta()
+        imeta2 = Imeta()
         assert id(imeta) != id(imeta2)
 
-        imeta = Singleton()
-        imeta2 = Singleton()
+        class Imeta_singleton(Singleton):
+            def __init__(self, a = (1, 2), b = ('x', 'y')):
+                self.a = a
+                self.b = b
+
+        imeta = Imeta_singleton()
+        imeta2 = Imeta_singleton()
         assert id(imeta) == id(imeta2)

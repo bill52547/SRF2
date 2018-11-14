@@ -10,9 +10,10 @@
 @desc: new version of Scalable Reconstruction Framework for Medical Imaging
 '''
 
+from abc import ABCMeta
+
 import h5py
 
-# dt = h5py.special_dtype(vlen = str)
 __all__ = ('Meta', 'Singleton',)
 
 
@@ -25,11 +26,12 @@ def _ascii_to_str(num):
     return reduce(lambda x, y: x + y, list(map(chr, num)))
 
 
-class Meta(object):
+class Meta(metaclass = ABCMeta):
     def __eq__(self, other):
         if self.__class__ != other.__class__:
             return False
         return self.__dict__ == other.__dict__
+
 
     def save_h5(self, path = None, mode = 'w'):
         from numbers import Number
@@ -66,7 +68,7 @@ class Meta(object):
             return cls(*args)
 
 
-class Singleton(object):
+class Singleton(metaclass = ABCMeta):
     instance = None
 
     def __new__(cls, *args, **kwargs):

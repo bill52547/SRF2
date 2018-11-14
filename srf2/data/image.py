@@ -6,6 +6,7 @@ from srf2.meta.image_meta import *
 __all__ = ('Image', 'Image_2d', 'Image_3d',)
 
 
+# noinspection PyPep8Naming
 class Image:
     def __init__(self, data = None, meta: Image_meta = None):
         if meta is None and data is None:
@@ -46,9 +47,6 @@ class Image:
     @property
     def T(self):
         return self.transpose()
-
-    def fmap(self, f):
-        return Image(f(self.data), self.meta)
 
     def normalize(self):
         sum_data = np.sum(self.data)
@@ -94,6 +92,7 @@ class Image:
             return cls(data, meta)
 
 
+# noinspection PyPep8Naming
 class Image_2d(Image):
     def __init__(self, data = None, meta: Image_meta_2d = None):
         super().__init__(data, meta)
@@ -104,6 +103,7 @@ class Image_2d(Image):
         return Image_2d(*f(self.data, self.meta))
 
 
+# noinspection PyPep8Naming
 class Image_3d(Image):
     def __init__(self, data = None, meta: Image_meta_3d = None):
         if meta is None and data is None:
@@ -123,8 +123,7 @@ class Image_3d(Image):
             raise ValueError('data must has same shape with its meta')
 
         data.astype(np.float32)
-        self._data = data
-        self._meta = meta
+        super().__init__(data, meta)
 
     def map(self, f):
         return Image_3d(*f(self.data, self.meta))
