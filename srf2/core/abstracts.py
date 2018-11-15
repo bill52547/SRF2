@@ -56,13 +56,13 @@ class Meta(metaclass = ABCMeta):
             path = 'tmp' + group_name + '.h5'
         with h5py.File(path, 'r') as fin:
             group = fin[group_name]
-            args = ()
+            args = tuple([])
             for key in attrs_dict.keys():
                 tmp = group.attrs[key]
                 if isinstance(tmp, Number):
                     args += (tmp,)
                 else:
-                    if tmp[0] == 12300111:
+                    if tmp.flatten()[0] == 12300111:
                         tmp = _ascii_to_str(tmp[1:])
                     args += tuple(tmp),
             return cls(*args)

@@ -14,8 +14,9 @@ import h5py
 import numpy as np
 import scipy.interpolate as interp
 from scipy import sparse
+from tqdm import tqdm
 
-from srf2.meta.image_meta import *
+from srf2.meta.image_meta import Image_meta_3d
 from srf2.meta.psf_meta import PsfMeta3d
 
 __all__ = ('PSF_3d',)
@@ -31,7 +32,7 @@ class PSF_3d:
             self._matrix_xy = sparse.csr_matrix((image_meta.n_xy, image_meta.n_xy),
                                                 dtype = np.float32)
             self._matrix_z = sparse.csr_matrix((image_meta.n_z, image_meta.n_z), dtype = np.float32)
-            self.generate_separate_matrix()
+            # self.generate_separate_matrix()
         else:
             self._matrix_xy = matrix_xy
             self._matrix_z = matrix_z
@@ -65,7 +66,7 @@ class PSF_3d:
         if path is None:
             path = 'tmp' + self.__class__.__name__ + '.h5'
         self.meta.save_h5(path, mode)
-        self.image_meta.save_h5(path, mode)
+        self.image_meta.save_h5(path, 'r+')
         with h5py.File(path, 'r+') as fout:
             group = fout.create_group('PSF')
             row, col = self.matrix_xy.nonzero()
@@ -97,14 +98,14 @@ class PSF_3d:
             row = np.array(dataset['_matrix_xy_row'])
             col = np.array(dataset['_matrix_xy_col'])
             data = np.array(dataset['_matrix_xy_data'])
-            matrix_xy = sparse.csr_matrix(((row, col), data),
+            matrix_xy = sparse.csr_matrix((data, (row, col)),
                                           shape = (image_meta.n_xy, image_meta.n_xy),
                                           dtype = np.float32)
 
             row = np.array(dataset['_matrix_z_row'])
             col = np.array(dataset['_matrix_z_col'])
             data = np.array(dataset['_matrix_z_data'])
-            matrix_z = sparse.csr_matrix(((row, col), data),
+            matrix_z = sparse.csr_matrix((data, (row, col)),
                                          shape = (image_meta.n_z, image_meta.n_z),
                                          dtype = np.float32)
 
@@ -121,7 +122,8 @@ class PSF_3d:
                                    dtype = np.float32)
         row, col = self.matrix_xy.nonzero()
         data = self.matrix_xy.data
-        for iz in np.arange(self.image_meta.n_z):
+        print('Generating full PSF matrix z')
+        for iz in tqdm(np.arange(self.image_meta.n_z)):
             lil_xy[row * self.image_meta.n_z + iz, col * self.image_meta.n_z + iz] = data
         return lil_xy.tocsr()
 
@@ -130,7 +132,8 @@ class PSF_3d:
                                   dtype = np.float32)
         row, col = self.matrix_z.nonzero()
         data = self.matrix_z.data
-        for ix in np.arange(self.image_meta.n_x):
+        print('Generating full PSF matrix xy')
+        for ix in tqdm(np.arange(self.image_meta.n_x)):
             for iy in np.arange(self.image_meta.n_y):
                 ind = iy + ix * self.image_meta.n_y
                 lil_z[row + self.image_meta.n_z * ind, col + self.image_meta.n_z * ind] = data
@@ -140,17 +143,16 @@ class PSF_3d:
         print('Generating full PSF matrix')
         return self._generate_matrix_xy_full() * self._generate_matrix_z_full()
 
-    def generate_separate_matrix(self):
+    def generate_separate_matrix(self, rang = 20):
         x1, y1 = self.image_meta.meshgrid_2d()
-        z1 = np.arange(self.image_meta.n_z)
+        z1 = self.image_meta.meshgrid_1d()
         R1 = np.sqrt(x1 ** 2 + y1 ** 2)
         z1 = np.abs(z1)
         R0 = np.sqrt(self.meta.mu[:, 0] ** 2 + self.meta.mu[:, 1] ** 2)
         z0 = np.abs(self.meta.mu[:, 2])
 
-        ind_xy = np.where(R0 > 0)[0]
-        ind_z = np.where(z0 > 0)[0]
-
+        ind_xy = np.where(self.meta.sigma[:, 2] == 0)[0]
+        ind_z = np.where(self.meta.sigma[:, 2] > 0)[0]
         if ind_xy.size > 1:
             fsigx = interp.interp1d(R0[ind_xy], self.meta.sigma[ind_xy, 0], kind = 'quadratic',
                                     fill_value = 'extrapolate')
@@ -158,22 +160,23 @@ class PSF_3d:
                                     fill_value = 'extrapolate')
             sigma_x, sigma_y = fsigx(R1), fsigy(R1)
         else:
-            sigma_x = np.mean(self.meta.sigma[:, 0]) * np.ones(R1.shape)
-            sigma_y = np.mean(self.meta.sigma[:, 1]) * np.ones(R1.shape)
+            sigma_x = np.mean(self.meta.sigma[ind_xy, 0]) * np.ones(R1.shape)
+            sigma_y = np.mean(self.meta.sigma[ind_xy, 1]) * np.ones(R1.shape)
 
         if ind_z.size > 1:
             fsigz = interp.interp1d(z0[ind_z], self.meta.sigma[ind_z, 2], kind = 'quadratic',
                                     fill_value = 'extrapolate')
             sigma_z = fsigz(z1)
         else:
-            sigma_z = np.mean(self.meta.sigma[:, 2]) * np.ones(z1.shape)
+            sigma_z = np.mean(self.meta.sigma[ind_z, 2]) * np.ones(z1.shape)
 
         lil_matrix_xy = sparse.lil_matrix((self.image_meta.n_xy, self.image_meta.n_xy),
                                           dtype = np.float32)
         lil_matrix_z = sparse.lil_matrix((self.image_meta.n_z, self.image_meta.n_z),
                                          dtype = np.float32)
         theta = self.image_meta.theta()
-        for ix in np.arange(self.image_meta.n_x):
+        print('Generating psf matrix in z')
+        for ix in tqdm(np.arange(self.image_meta.n_x)):
             for iy in np.arange(self.image_meta.n_y):
                 ind = iy + ix * self.image_meta.n_y
                 img_tmp = _gaussian_2d((x1 - x1[ix, iy], y1 - y1[ix, iy], theta[ix, iy]),
@@ -185,7 +188,8 @@ class PSF_3d:
                 lil_matrix_xy[row, col] = data
         self._matrix_xy = lil_matrix_xy.tocsr()
 
-        for iz in np.arange(self.image_meta.n_z):
+        print('Generating psf matrix in z')
+        for iz in tqdm(np.arange(self.image_meta.n_z)):
             img_tmp = _gaussian_1d(z1 - z1[iz], sigma_z[iz])
             gk = img_tmp.flatten()
             row = np.where(gk > 0)[0]
@@ -201,6 +205,8 @@ class PSF_2d:
 
 
 def _gaussian_1d(z, sigz):
+    sigz = abs(sigz)
+
     return 1 / _sqrt_pi / sigz * np.exp(-z ** 2 / 2 / sigz ** 2)
 
 
@@ -208,11 +214,27 @@ def _gaussian_2d(x_y_t, sigx, sigy):
     x = x_y_t[0]
     y = x_y_t[1]
     theta = x_y_t[2]
-
+    sigx = abs(sigx)
+    sigy = abs(sigy)
     x1 = x * np.cos(theta) + y * np.sin(theta)
     y1 = -x * np.sin(theta) + y * np.cos(theta)
-    return 1 / _sqrt_pi ** 2 / sigx / sigy * np.exp(
-        -x1 ** 2 / 2 / sigx ** 2 - y1 ** 2 / 2 / sigy ** 2)
+    return 1 / _sqrt_pi ** 2 / sigx / sigy * np.exp(-x1 ** 2 / 2 / sigx ** 2) * np.exp(- y1 ** 2
+                                                                                       / 2 / sigy ** 2)
+
+
+def _gaussian_3d_xy(x_y_z_t, sigx, sigy):
+    x = x_y_z_t[0]
+    y = x_y_z_t[1]
+    z = x_y_z_t[2]
+    t = x_y_z_t[3]
+    sigx = abs(sigx)
+    sigy = abs(sigy)
+
+    x1 = x * np.cos(t) + y * np.sin(t)
+    y1 = -x * np.sin(t) + y * np.cos(t)
+
+    return 1 / _sqrt_pi ** 2 / sigx / sigy * np.exp(-x1 ** 2 / 2 / sigx ** 2) * np.exp(
+        - y1 ** 2 / 2 / sigy ** 2)
 
 
 def _gaussian_3d(x_y_z_t, sigx, sigy, sigz):
@@ -221,8 +243,11 @@ def _gaussian_3d(x_y_z_t, sigx, sigy, sigz):
     z = x_y_z_t[2]
     t = x_y_z_t[3]
 
+    sigx = abs(sigx)
+    sigy = abs(sigy)
+    sigz = abs(sigz)
+
     x1 = x * np.cos(t) + y * np.sin(t)
     y1 = -x * np.sin(t) + y * np.cos(t)
-
     return 1 / _sqrt_pi ** 3 / sigx / sigy / sigz * np.exp(-x1 ** 2 / 2 / sigx ** 2) * np.exp(
         - y1 ** 2 / 2 / sigy ** 2) * np.exp(-z ** 2 / 2 / sigz ** 2)
