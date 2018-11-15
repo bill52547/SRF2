@@ -1,97 +1,53 @@
-import attr
+#!/usr/bin/env python
+# encoding: utf-8
+'''
+@author: Minghao Guo, Xiang Hong, Gaoyu Chen and Weijie Tao
+@license: LGPL_v3.0
+@contact: mh.guo0111@gmail.com
+@software: srf_v2
+@file: psf.py
+@date: 11/13/2018
+@desc: new version of Scalable Reconstruction Framework for Medical Imaging
+'''
+
 import h5py
 import numpy as np
 import scipy.interpolate as interp
-import scipy.optimize as opt
 from scipy import sparse
-from tqdm import tqdm
 
-from srf2.data.image import *
+from srf2.meta.image_meta import *
+from srf2.meta.psf_meta import PsfMeta3d
 
-__all__ = ['PSF_meta', 'PSF']
-
-
-@attr.s
-class PSF_meta:
-    image_filename_prefix = attr.ib(default = '.')
-    num = attr.ib(default = 0)
-    pos = attr.ib(default = np.zeros(0, ))
-
-    is_sigma0 = attr.ib(default = False)
-    is_sigma = attr.ib(default = False)
-    is_matrix = attr.ib(default = False)
-    _threshold = attr.ib(default = 1e-4)
-
-    @property
-    def threshold(self):
-        return self._threshold
-
-    def save_h5(self, path, mode = 'w'):
-        dt = h5py.special_dtype(vlen = str)
-        with h5py.File(path, mode) as fout:
-            group = fout.create_group('psf_meta')
-            group.attrs.create('_threshold', data = self._threshold)
-            group.attrs.create('is_sigma0', data = 1 if self.is_sigma0 else 0)
-            group.attrs.create('is_sigma', data = 1 if self.is_sigma else 0)
-            group.attrs.create('is_matrix', data = 1 if self.is_matrix else 0)
-            dset = group.create_dataset('image_filename_prefix', (1,), dtype = dt)
-            dset[0] = self.image_filename_prefix
-            group.attrs.create('num', data = self.num)
-            group.attrs.create('pos', data = self.pos)
-
-    def load_h5(path):
-        with h5py.File(path, 'r') as fin:
-            group = fin['psf_meta']
-            _threshold = np.float32(group.attrs['_threshold'])
-            is_sigma0 = bool(group.attrs['is_sigma0'])
-            is_sigma = bool(group.attrs['is_sigma'])
-            is_matrix = bool(group.attrs['is_matrix'])
-            image_filename_prefix = group['image_filename_prefix'][0]
-            num = np.int32(group.attrs['num'])
-            pos = np.array(group.attrs['pos'])
-            return PSF_meta(_threshold, is_sigma0, is_sigma, is_matrix, image_filename_prefix, num,
-                            pos)
+__all__ = ('PSF_3d',)
+_sqrt_pi = np.sqrt(np.pi)
 
 
-@attr.s
-class PSF:
-    image_meta = attr.ib()
-    meta = attr.ib()
-
-    _sigma_x0 = attr.ib(default = None)
-    _sigma_y0 = attr.ib(default = None)
-    _sigma_z0 = attr.ib(default = None)
-
-    _sigma_x = attr.ib(default = None)
-    _sigma_y = attr.ib(default = None)
-    _sigma_z = attr.ib(default = None)
-
-    _matrix_xy = attr.ib(default = sparse.csr_matrix((1, 1), dtype = np.float32))
-    _matrix_z = attr.ib(default = sparse.csr_matrix((1, 1), dtype = np.float32))
+class PSF_3d:
+    def __init__(self, meta: PsfMeta3d = PsfMeta3d(), image_meta: Image_meta_3d =
+    Image_meta_3d(), matrix_xy = None, matrix_z = None, matrix = None):
+        self._meta = meta
+        self._image_meta = image_meta
+        if matrix_xy is None:
+            self._matrix_xy = sparse.csr_matrix((image_meta.n_xy, image_meta.n_xy),
+                                                dtype = np.float32)
+            self._matrix_z = sparse.csr_matrix((image_meta.n_z, image_meta.n_z), dtype = np.float32)
+            self.generate_separate_matrix()
+        else:
+            self._matrix_xy = matrix_xy
+            self._matrix_z = matrix_z
+        if matrix is not None:
+            self._matrix = matrix
+        else:
+            self._matrix = sparse.csr_matrix((image_meta.n_all, image_meta.n_all),
+                                             dtype = np.float32)
 
     @property
-    def sigma_x0(self):
-        return self._sigma_x0
+    def meta(self):
+        return self._meta
 
     @property
-    def sigma_y0(self):
-        return self._sigma_y0
-
-    @property
-    def sigma_z0(self):
-        return self._sigma_z0
-
-    @property
-    def sigma_x(self):
-        return self._sigma_x
-
-    @property
-    def sigma_y(self):
-        return self._sigma_y
-
-    @property
-    def sigma_z(self):
-        return self._sigma_z
+    def image_meta(self):
+        return self._image_meta
 
     @property
     def matrix_xy(self):
@@ -101,181 +57,151 @@ class PSF:
     def matrix_z(self):
         return self._matrix_z
 
-    def generate_sigma0(self):
-        if self.meta.is_sigma0:
-            return self
-        print("fitting parameters of PSF")
-        for i in tqdm(range(self.meta.num)):
-            img = Image.load_h5(self.meta.image_filename_prefix + str(i))
-            img_meta = Image_meta.load_h5(self.meta.image_filename_prefix + str(i))
-            pos = self.meta.pos[i]
-            img = img / np.sum(img)
-            x1, y1, z1 = img_meta.meshgrid()
-            x1, y1, z1 = x1.flatten() - pos[0], y1.flatten() - pos[1], z1.flatten() - pos[2]
-            theta = 0 * img_meta.theta()
-            popt, pcov = opt.curve_fit(_gaussian_3d, (x1, y1, z1, theta), img.flatten())
-            self._sigma_x0[i] = popt[0]
-            self._sigma_y0[i] = popt[1]
-            self._sigma_z0[i] = popt[2]
+    @property
+    def matrix(self):
+        return self._matrix
 
-        self.meta.is_sigma0 = True
+    def save_h5(self, path = None, mode = 'w'):
+        if path is None:
+            path = 'tmp' + self.__class__.__name__ + '.h5'
+        self.meta.save_h5(path, mode)
+        self.image_meta.save_h5(path, mode)
+        with h5py.File(path, 'r+') as fout:
+            group = fout.create_group('PSF')
+            row, col = self.matrix_xy.nonzero()
+            data = self.matrix_xy.data
+            group.create_dataset('_matrix_xy_row', data = row, compression = "gzip")
+            group.create_dataset('_matrix_xy_col', data = col, compression = "gzip")
+            group.create_dataset('_matrix_xy_data', data = data, compression = "gzip")
+            row, col = self.matrix_z.nonzero()
+            data = self.matrix_z.data
+            group.create_dataset('_matrix_z_row', data = row, compression = "gzip")
+            group.create_dataset('_matrix_z_col', data = col, compression = "gzip")
+            group.create_dataset('_matrix_z_data', data = data, compression = "gzip")
+            #
+            # row, col = self.matrix.nonzero()
+            # data = self.matrix.data
+            # group.create_dataset('_matrix_full_row', data = row, compression = "gzip")
+            # group.create_dataset('_matrix_full_col', data = col, compression = "gzip")
+            # group.create_dataset('_matrix_full_data', data = data, compression = "gzip")
 
-    def generate_sigma(self):
-        if self.meta.is_sigma:
-            return self
-        if not self.meta.is_sigma0:
-            self.generate_sigma0()
-        x1, y1, z1 = self.image_meta.meshgrid()
+    @classmethod
+    def load_h5(cls, path = None):
+        if path is None:
+            path = 'tmp' + cls.__name__ + '.h5'
+
+        meta = PsfMeta3d.load_h5(path)
+        image_meta = Image_meta_3d.load_h5(path)
+        with h5py.File(path, 'r') as fin:
+            dataset = fin['PSF']
+            row = np.array(dataset['_matrix_xy_row'])
+            col = np.array(dataset['_matrix_xy_col'])
+            data = np.array(dataset['_matrix_xy_data'])
+            matrix_xy = sparse.csr_matrix(((row, col), data),
+                                          shape = (image_meta.n_xy, image_meta.n_xy),
+                                          dtype = np.float32)
+
+            row = np.array(dataset['_matrix_z_row'])
+            col = np.array(dataset['_matrix_z_col'])
+            data = np.array(dataset['_matrix_z_data'])
+            matrix_z = sparse.csr_matrix(((row, col), data),
+                                         shape = (image_meta.n_z, image_meta.n_z),
+                                         dtype = np.float32)
+
+            # row = np.array(dataset['_matrix_full_row'])
+            # col = np.array(dataset['_matrix_full_col'])
+            # data = np.array(dataset['_matrix_full_data'])
+            # matrix_full = sparse.csr_matrix(((row, col), data),
+            #                                 shape = (image_meta.n_z, image_meta.n_z),
+            #                                 dtype = np.float32)
+            return PSF_3d(meta, image_meta, matrix_xy, matrix_z)
+
+    def _generate_matrix_xy_full(self):
+        lil_xy = sparse.lil_matrix((self.image_meta.n_all, self.image_meta.n_all),
+                                   dtype = np.float32)
+        row, col = self.matrix_xy.nonzero()
+        data = self.matrix_xy.data
+        for iz in np.arange(self.image_meta.n_z):
+            lil_xy[row * self.image_meta.n_z + iz, col * self.image_meta.n_z + iz] = data
+        return lil_xy.tocsr()
+
+    def _generate_matrix_z_full(self):
+        lil_z = sparse.lil_matrix((self.image_meta.n_all, self.image_meta.n_all),
+                                  dtype = np.float32)
+        row, col = self.matrix_z.nonzero()
+        data = self.matrix_z.data
+        for ix in np.arange(self.image_meta.n_x):
+            for iy in np.arange(self.image_meta.n_y):
+                ind = iy + ix * self.image_meta.n_y
+                lil_z[row + self.image_meta.n_z * ind, col + self.image_meta.n_z * ind] = data
+        return lil_z.tocsr()
+
+    def generate_matrix_full(self):
+        print('Generating full PSF matrix')
+        return self._generate_matrix_xy_full() * self._generate_matrix_z_full()
+
+    def generate_separate_matrix(self):
+        x1, y1 = self.image_meta.meshgrid_2d()
+        z1 = np.arange(self.image_meta.n_z)
         R1 = np.sqrt(x1 ** 2 + y1 ** 2)
         z1 = np.abs(z1)
-        R0 = np.sqrt(self.meta.pos[0] ** 2 + self.meta.pos[1] ** 2)
-        z0 = np.abs(self.meta.pos[2])
-        fsigx = interp.interp1d(R0, self._sigma_x0, kind = 'quadratic', fill_value = 'extrapolate')
-        fsigy = interp.interp1d(R0, self._sigma_y0, kind = 'quadratic', fill_value = 'extrapolate')
-        fsigz = interp.interp1d(z0, self._sigma_z0, kind = 'quadratic', fill_value = 'extrapolate')
-        self._sigma_x = fsigx(R1)
-        self._sigma_y = fsigy(R1)
-        self._sigma_z = fsigz(z1)
+        R0 = np.sqrt(self.meta.mu[:, 0] ** 2 + self.meta.mu[:, 1] ** 2)
+        z0 = np.abs(self.meta.mu[:, 2])
 
-        self.meta.is_sigma = True
+        ind_xy = np.where(R0 > 0)[0]
+        ind_z = np.where(z0 > 0)[0]
 
-    def generate_matrix(self):
-        if self.meta.is_matrix:
-            return self
+        if ind_xy.size > 1:
+            fsigx = interp.interp1d(R0[ind_xy], self.meta.sigma[ind_xy, 0], kind = 'quadratic',
+                                    fill_value = 'extrapolate')
+            fsigy = interp.interp1d(R0[ind_xy], self.meta.sigma[ind_xy, 1], kind = 'quadratic',
+                                    fill_value = 'extrapolate')
+            sigma_x, sigma_y = fsigx(R1), fsigy(R1)
+        else:
+            sigma_x = np.mean(self.meta.sigma[:, 0]) * np.ones(R1.shape)
+            sigma_y = np.mean(self.meta.sigma[:, 1]) * np.ones(R1.shape)
 
-        if not self.meta.is_sigma:
-            self.generate_sigma()
+        if ind_z.size > 1:
+            fsigz = interp.interp1d(z0[ind_z], self.meta.sigma[ind_z, 2], kind = 'quadratic',
+                                    fill_value = 'extrapolate')
+            sigma_z = fsigz(z1)
+        else:
+            sigma_z = np.mean(self.meta.sigma[:, 2]) * np.ones(z1.shape)
 
-        x1, y1 = self.image_meta.meshgrid_2d()
         lil_matrix_xy = sparse.lil_matrix((self.image_meta.n_xy, self.image_meta.n_xy),
                                           dtype = np.float32)
         lil_matrix_z = sparse.lil_matrix((self.image_meta.n_z, self.image_meta.n_z),
                                          dtype = np.float32)
-
         theta = self.image_meta.theta()
-        print('Generating PSF matrix xy')
-        for ix in tqdm(np.arange(self.image_meta.shape[0])):
-            for iy in np.arange(self.image_meta.shape[1]):
-                ind = ix + iy * self.image_meta.shape[0]
-
+        for ix in np.arange(self.image_meta.n_x):
+            for iy in np.arange(self.image_meta.n_y):
+                ind = iy + ix * self.image_meta.n_y
                 img_tmp = _gaussian_2d((x1 - x1[ix, iy], y1 - y1[ix, iy], theta[ix, iy]),
-                                       self._sigma_x, self._sigma_y)
-                amp = 1 / 2 / np.pi / self._sigma_x / self._sigma_y
-                col = y1[img_tmp > amp * self.meta.threshold] + x1[
-                    img_tmp > amp * self.meta.threshold] * \
-                      self.image_meta.shape[1]
-                row = np.ones(col.shape) * ind
-                data = img_tmp[img_tmp > amp * self.meta.threshold]
+                                       sigma_x[ix, iy], sigma_y[ix, iy])
+                gk = img_tmp.flatten()
+                row = np.where(gk > 0)[0]
+                col = ind * np.ones(row.shape)
+                data = gk[row]
                 lil_matrix_xy[row, col] = data
         self._matrix_xy = lil_matrix_xy.tocsr()
 
-        z1 = np.arange(self.image_meta.shape[2]) * self.image_meta.unit_size[2] + \
-             self.image_meta.center[2] - \
-             self.image_meta.size[2] / 2 + self.image_meta.unit_size[2] / 2
-
-        print('Generating PSF matrix z')
-        for iz in tqdm(np.arange(self.image_meta.shape[2])):
-            img_tmp = _gaussian_1d(z1 - z1[iz], self._sigma_z)
-            amp = 1 / np.sqrt(2 * np.pi) / self._sigma_z
-            col = x1[img_tmp > amp * self.meta.threshold]
-            row = np.ones(col.shape) * iz
-            data = img_tmp[img_tmp > amp * self.meta.threshold]
+        for iz in np.arange(self.image_meta.n_z):
+            img_tmp = _gaussian_1d(z1 - z1[iz], sigma_z[iz])
+            gk = img_tmp.flatten()
+            row = np.where(gk > 0)[0]
+            col = iz * np.ones(row.shape)
+            data = gk[row]
             lil_matrix_z[row, col] = data
-        self._matrix_xy = lil_matrix_xy.tocsr()
 
-        self.meta.is_matrix = True
+        self._matrix_z = lil_matrix_z.tocsr()
 
-    def psf_transform(self, _image: Image):
-        if self.image_meta != _image.meta:
-            raise TypeError(
-                'Input image object has different implementing meta from the image_meta in PSF object')
 
-        result = Image(_image.meta, _image.data)
-
-        print('imaging is transforming by PSF_z')
-
-        for ix in tqdm(range(self.image_meta.shape[0])):
-            for iy in range(self.image_meta.shape[1]):
-                result[ix, iy, :] = self._matrix_z * result[ix, iy, :]
-
-        result2 = result.transpose()
-
-        print('imaging is transforming by PSF_xy')
-        for iz in tqdm(range(self.image_meta.n_z)):
-            result2[:, :, iz] = (self._matrix_xy * result2[:, :, iz].flatten()).reshape(
-                result2.meta.shape[:2])
-
-        return result2.transpose()
-
-    def save_h5(self, path):
-        self.image_meta.save_h5(path)
-        self.meta.save_h5(path, 'r+')
-        with h5py.File(path, 'r+') as fout:
-            group = fout.create_group('psf')
-            if self.meta.is_sigma0:
-                group.create_dataset('_sigma_x0', data = self._sigma_x0)
-                group.create_dataset('_sigma_y0', data = self._sigma_y0)
-                group.create_dataset('_sigma_z0', data = self._sigma_z0)
-            if self.meta.is_sigma:
-                group.create_dataset('_sigma_x', data = self._sigma_x)
-                group.create_dataset('_sigma_y', data = self._sigma_y)
-                group.create_dataset('_sigma_z', data = self._sigma_z)
-            if self.meta.is_matrix:
-                row, col = self._matrix_xy.nonzero()
-                group.create_dataset('_matrix_xy_row', data = row)
-                group.create_dataset('_matrix_xy_col', data = col)
-                group.create_dataset('_matrix_xy_data', data = self._matrix_xy.data)
-
-                row, col = self._matrix_z.nonzero()
-                group.create_dataset('_matrix_z_row', data = row)
-                group.create_dataset('_matrix_z_col', data = col)
-                group.create_dataset('_matrix_z_data', data = self._matrix_z.data)
-
-    def load_h5(path):
-        img_meta = Image_meta.load_h5(path)
-        meta = PSF_meta.load_h5(path)
-        with h5py.File(path, 'r') as fin:
-            group = fin['psf']
-            if meta.is_sigma0:
-                _sigma_x0 = group['_sigma_x0']
-                _sigma_y0 = group['_sigma_y0']
-                _sigma_z0 = group['_sigma_z0']
-            else:
-                _sigma_x0 = _sigma_y0 = _sigma_z0 = np.ones(meta.num, ) * 1e8
-
-            if meta.is_sigma:
-                _sigma_x = group['_sigma_x']
-                _sigma_y = group['_sigma_y']
-                _sigma_z = group['_sigma_z']
-            else:
-                _sigma_x = _sigma_y = _sigma_z = np.ones(meta.num, ) * 1e8
-
-            if meta.is_matrix:
-                row = group['_matrix_xy_row']
-                col = group['_matrix_xy_col']
-                data = group['_matrix_xy_data']
-                _matrix_xy = sparse.csr_matrix((data, (row, col)),
-                                               shape = (img_meta.n_xy, img_meta.n_xy),
-                                               dtype = np.float32)
-                row = group['_matrix_z_row']
-                col = group['_matrix_z_col']
-                data = group['_matrix_z_data']
-                _matrix_z = sparse.csr_matrix((data, (row, col)),
-                                              shape = (img_meta.n_z, img_meta.n_z),
-                                              dtype = np.float32)
-            else:
-                _matrix_xy = sparse.csr_matrix(shape = (img_meta.n_xy, img_meta.n_xy),
-                                               dtype = np.float32)
-                _matrix_z = sparse.csr_matrix(shape = (img_meta.n_z, img_meta.n_z),
-                                              dtype = np.float32)
-
-            return PSF(img_meta, meta, _sigma_x0, _sigma_y0, _sigma_z0, _sigma_x, _sigma_y,
-                       _sigma_z, _matrix_xy,
-                       _matrix_xy)
+class PSF_2d:
+    pass
 
 
 def _gaussian_1d(z, sigz):
-    return 1 / np.sqrt(2 * np.pi) / sigz * np.exp(-z ** 2 / 2 / sigz ** 2)
+    return 1 / _sqrt_pi / sigz * np.exp(-z ** 2 / 2 / sigz ** 2)
 
 
 def _gaussian_2d(x_y_t, sigx, sigy):
@@ -285,7 +211,7 @@ def _gaussian_2d(x_y_t, sigx, sigy):
 
     x1 = x * np.cos(theta) + y * np.sin(theta)
     y1 = -x * np.sin(theta) + y * np.cos(theta)
-    return 1 / np.sqrt(2 * np.pi) ** 2 / sigx / sigy * np.exp(
+    return 1 / _sqrt_pi ** 2 / sigx / sigy * np.exp(
         -x1 ** 2 / 2 / sigx ** 2 - y1 ** 2 / 2 / sigy ** 2)
 
 
@@ -293,10 +219,10 @@ def _gaussian_3d(x_y_z_t, sigx, sigy, sigz):
     x = x_y_z_t[0]
     y = x_y_z_t[1]
     z = x_y_z_t[2]
-    theta = x_y_z_t[3]
+    t = x_y_z_t[3]
 
-    x1 = x * np.cos(theta) + y * np.sin(theta)
-    y1 = -x * np.sin(theta) + y * np.cos(theta)
-    return 1 / np.sqrt(2 * np.pi) ** 3 / sigx / sigy / sigz * np.exp(
-        -z ** 2 / 2 / sigz ** 2) * np.exp(
-        -x1 ** 2 / 2 / sigx ** 2 - y1 ** 2 / 2 / sigy ** 2)
+    x1 = x * np.cos(t) + y * np.sin(t)
+    y1 = -x * np.sin(t) + y * np.cos(t)
+
+    return 1 / _sqrt_pi ** 3 / sigx / sigy / sigz * np.exp(-x1 ** 2 / 2 / sigx ** 2) * np.exp(
+        - y1 ** 2 / 2 / sigy ** 2) * np.exp(-z ** 2 / 2 / sigz ** 2)
