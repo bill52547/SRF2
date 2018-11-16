@@ -20,7 +20,8 @@ from srf2.meta.image_meta import Image_meta_3d
 from srf2.meta.psf_meta import PsfMeta3d
 
 __all__ = ('PSF_3d',)
-_sqrt_pi = np.sqrt(np.pi)
+_sqrt_2_pi = np.sqrt(np.pi * 2)
+eps = 1e-8
 
 
 class PSF_3d:
@@ -28,14 +29,13 @@ class PSF_3d:
     Image_meta_3d(), matrix_xy = None, matrix_z = None, matrix = None):
         self._meta = meta
         self._image_meta = image_meta
-        if matrix_xy is None:
+        if matrix_xy is not None:
+            self._matrix_xy = matrix_xy
+            self._matrix_z = matrix_z
+        else:
             self._matrix_xy = sparse.csr_matrix((image_meta.n_xy, image_meta.n_xy),
                                                 dtype = np.float32)
             self._matrix_z = sparse.csr_matrix((image_meta.n_z, image_meta.n_z), dtype = np.float32)
-            # self.generate_separate_matrix()
-        else:
-            self._matrix_xy = matrix_xy
-            self._matrix_z = matrix_z
         if matrix is not None:
             self._matrix = matrix
         else:
@@ -143,61 +143,75 @@ class PSF_3d:
         print('Generating full PSF matrix')
         return self._generate_matrix_xy_full() * self._generate_matrix_z_full()
 
-    def generate_separate_matrix(self, rang = 20):
-        x1, y1 = self.image_meta.meshgrid_2d()
-        z1 = self.image_meta.meshgrid_1d()
+    def generate_matrix_xy(self):
+        # x1, y1 = self.image_meta.meshgrid_2d()
+        x1, y1 = self.image_meta.grid_centers_2d()
         R1 = np.sqrt(x1 ** 2 + y1 ** 2)
-        z1 = np.abs(z1)
         R0 = np.sqrt(self.meta.mu[:, 0] ** 2 + self.meta.mu[:, 1] ** 2)
-        z0 = np.abs(self.meta.mu[:, 2])
-
-        ind_xy = np.where(self.meta.sigma[:, 2] == 0)[0]
-        ind_z = np.where(self.meta.sigma[:, 2] > 0)[0]
-        if ind_xy.size > 1:
+        lil_matrix_xy = sparse.lil_matrix((self.image_meta.n_xy, self.image_meta.n_xy),
+                                          dtype = np.float32)
+        ind_xy = np.where(self.meta.sigma[:, 0] != 0)[0]
+        if ind_xy.size == 0:
+            lil_matrix_xy[range(self.image_meta.n_xy), range(self.image_meta.n_xy)] = 1
+            self._matrix_xy = lil_matrix_xy.tocsr()
+            return self.matrix_xy
+        elif ind_xy.size == 1:
+            sigma_x = self.meta.sigma[ind_xy, 0] * np.ones(R1.shape)
+            sigma_y = self.meta.sigma[ind_xy, 1] * np.ones(R1.shape)
+        else:
             fsigx = interp.interp1d(R0[ind_xy], self.meta.sigma[ind_xy, 0], kind = 'quadratic',
                                     fill_value = 'extrapolate')
             fsigy = interp.interp1d(R0[ind_xy], self.meta.sigma[ind_xy, 1], kind = 'quadratic',
                                     fill_value = 'extrapolate')
             sigma_x, sigma_y = fsigx(R1), fsigy(R1)
-        else:
-            sigma_x = np.mean(self.meta.sigma[ind_xy, 0]) * np.ones(R1.shape)
-            sigma_y = np.mean(self.meta.sigma[ind_xy, 1]) * np.ones(R1.shape)
-
-        if ind_z.size > 1:
-            fsigz = interp.interp1d(z0[ind_z], self.meta.sigma[ind_z, 2], kind = 'quadratic',
-                                    fill_value = 'extrapolate')
-            sigma_z = fsigz(z1)
-        else:
-            sigma_z = np.mean(self.meta.sigma[ind_z, 2]) * np.ones(z1.shape)
-
-        lil_matrix_xy = sparse.lil_matrix((self.image_meta.n_xy, self.image_meta.n_xy),
-                                          dtype = np.float32)
-        lil_matrix_z = sparse.lil_matrix((self.image_meta.n_z, self.image_meta.n_z),
-                                         dtype = np.float32)
+        print('Generating psf matrix in xy')
         theta = self.image_meta.theta()
-        print('Generating psf matrix in z')
         for ix in tqdm(np.arange(self.image_meta.n_x)):
             for iy in np.arange(self.image_meta.n_y):
+                if R1[ix, iy] > np.max(R0):
+                    continue
                 ind = iy + ix * self.image_meta.n_y
                 img_tmp = _gaussian_2d((x1 - x1[ix, iy], y1 - y1[ix, iy], theta[ix, iy]),
                                        sigma_x[ix, iy], sigma_y[ix, iy])
                 gk = img_tmp.flatten()
-                row = np.where(gk > 0)[0]
-                col = ind * np.ones(row.shape)
+                row = np.where(gk > eps)[0]
+                col = ind * np.ones(row.size)
                 data = gk[row]
                 lil_matrix_xy[row, col] = data
+
         self._matrix_xy = lil_matrix_xy.tocsr()
+        return self.matrix_xy
+
+    def generate_matrix_z(self):
+        # z1 = self.image_meta.meshgrid_1d()
+        z1 = self.image_meta.meshgrid_1d()
+        z1 = np.abs(z1)
+        z0 = np.abs(self.meta.mu[:, 2])
+
+        lil_matrix_z = sparse.lil_matrix((self.image_meta.n_z, self.image_meta.n_z),
+                                         dtype = np.float32)
+        ind_z = np.where(self.meta.sigma[:, 2] != 0)[0]
+        if ind_z.size == 0:
+            lil_matrix_z[range(self.image_meta.n_z), range(self.image_meta.n_z)] = 1
+            self._matrix_xy = lil_matrix_z.tocsr()
+            return self.matrix_z
+        elif ind_z.size == 1:
+            sigma_z = self.meta.sigma[ind_z, 2] * np.ones(z1.shape)
+        else:
+            fsigz = interp.interp1d(z0[ind_z], self.meta.sigma[ind_z, 2], kind = 'quadratic',
+                                    fill_value = 'extrapolate')
+            sigma_z = fsigz(z1)
 
         print('Generating psf matrix in z')
         for iz in tqdm(np.arange(self.image_meta.n_z)):
             img_tmp = _gaussian_1d(z1 - z1[iz], sigma_z[iz])
             gk = img_tmp.flatten()
-            row = np.where(gk > 0)[0]
+            row = np.where(gk > eps)[0]
             col = iz * np.ones(row.shape)
             data = gk[row]
             lil_matrix_z[row, col] = data
-
         self._matrix_z = lil_matrix_z.tocsr()
+        return self.matrix_z
 
 
 class PSF_2d:
@@ -206,8 +220,7 @@ class PSF_2d:
 
 def _gaussian_1d(z, sigz):
     sigz = abs(sigz)
-
-    return 1 / _sqrt_pi / sigz * np.exp(-z ** 2 / 2 / sigz ** 2)
+    return 1 / _sqrt_2_pi / sigz * np.exp(-z ** 2 / 2 / sigz ** 2)
 
 
 def _gaussian_2d(x_y_t, sigx, sigy):
@@ -218,8 +231,8 @@ def _gaussian_2d(x_y_t, sigx, sigy):
     sigy = abs(sigy)
     x1 = x * np.cos(theta) + y * np.sin(theta)
     y1 = -x * np.sin(theta) + y * np.cos(theta)
-    return 1 / _sqrt_pi ** 2 / sigx / sigy * np.exp(-x1 ** 2 / 2 / sigx ** 2) * np.exp(- y1 ** 2
-                                                                                       / 2 / sigy ** 2)
+    return 1 / _sqrt_2_pi ** 2 / sigx / sigy * np.exp(-x1 ** 2 / 2 / sigx ** 2) * np.exp(
+        - y1 ** 2 / 2 / sigy ** 2)
 
 
 def _gaussian_3d_xy(x_y_z_t, sigx, sigy):
@@ -233,7 +246,7 @@ def _gaussian_3d_xy(x_y_z_t, sigx, sigy):
     x1 = x * np.cos(t) + y * np.sin(t)
     y1 = -x * np.sin(t) + y * np.cos(t)
 
-    return 1 / _sqrt_pi ** 2 / sigx / sigy * np.exp(-x1 ** 2 / 2 / sigx ** 2) * np.exp(
+    return 1 / _sqrt_2_pi ** 2 / sigx / sigy * np.exp(-x1 ** 2 / 2 / sigx ** 2) * np.exp(
         - y1 ** 2 / 2 / sigy ** 2)
 
 
@@ -249,5 +262,5 @@ def _gaussian_3d(x_y_z_t, sigx, sigy, sigz):
 
     x1 = x * np.cos(t) + y * np.sin(t)
     y1 = -x * np.sin(t) + y * np.cos(t)
-    return 1 / _sqrt_pi ** 3 / sigx / sigy / sigz * np.exp(-x1 ** 2 / 2 / sigx ** 2) * np.exp(
+    return 1 / _sqrt_2_pi ** 3 / sigx / sigy / sigz * np.exp(-x1 ** 2 / 2 / sigx ** 2) * np.exp(
         - y1 ** 2 / 2 / sigy ** 2) * np.exp(-z ** 2 / 2 / sigz ** 2)

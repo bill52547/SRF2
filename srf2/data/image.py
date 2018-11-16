@@ -52,6 +52,10 @@ class Image:
         sum_data = np.sum(self.data)
         return Image(self.data / sum_data, self.meta)
 
+        # return Image(self.data / sum_data / self.meta.unit_size[0] / self.meta.unit_size[1] /
+        #              self.meta.unit_size[2], self.meta)
+
+
     def transpose(self, perm = None):
         if perm is None:
             perm = np.arange(self.meta.ndim)[::-1]

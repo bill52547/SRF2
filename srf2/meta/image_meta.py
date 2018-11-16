@@ -151,17 +151,27 @@ class Image_meta_2d(Image_meta):
         return Image_meta_2d(
             *f(tuple(self.shape), tuple(self.center), tuple(self.size), tuple(self.dims)))
 
+    # def meshgrid(self, slice = None):
+    #     if slice is None:
+    #         x = np.arange(self.shape[0]) * self.unit_size[0] + self.center[0] - self.size[0] / 2 + \
+    #             self.unit_size[0] / 2
+    #         y = np.arange(self.shape[1]) * self.unit_size[1] + self.center[1] - self.size[1] / 2 + \
+    #             self.unit_size[1] / 2
+    #     else:
+    #         x = np.arange(self.shape[0])[slice[0]] * self.unit_size[0] + self.center[0] - self.size[
+    #             0] / 2 + self.unit_size[0] / 2
+    #         y = np.arange(self.shape[1])[slice[1]] * self.unit_size[1] + self.center[1] - self.size[
+    #             1] / 2 + self.unit_size[1] / 2
+    #
+    #     y1, x1 = np.meshgrid(y, x)
+    #     return x1, y1
     def meshgrid(self, slice = None):
         if slice is None:
-            x = np.arange(self.shape[0]) * self.unit_size[0] + self.center[0] - self.size[0] / 2 + \
-                self.unit_size[0] / 2
-            y = np.arange(self.shape[1]) * self.unit_size[1] + self.center[1] - self.size[1] / 2 + \
-                self.unit_size[1] / 2
+            x = np.arange(self.shape[0])
+            y = np.arange(self.shape[1])
         else:
-            x = np.arange(self.shape[0])[slice[0]] * self.unit_size[0] + self.center[0] - self.size[
-                0] / 2 + self.unit_size[0] / 2
-            y = np.arange(self.shape[1])[slice[1]] * self.unit_size[1] + self.center[1] - self.size[
-                1] / 2 + self.unit_size[1] / 2
+            x = np.arange(self.shape[0])[slice[0]]
+            y = np.arange(self.shape[1])[slice[1]]
 
         y1, x1 = np.meshgrid(y, x)
         return x1, y1
@@ -203,46 +213,93 @@ class Image_meta_3d(Image_meta):
         return Image_meta_3d(
             *f(tuple(self.shape), tuple(self.center), tuple(self.size), tuple(self.dims)))
 
+    # def meshgrid(self, slice = None):
+    #     if slice is None:
+    #         x = np.arange(self.shape[0]) * self.unit_size[0] + self.center[0] - self.size[0] / 2 + \
+    #             self.unit_size[0] / 2
+    #         y = np.arange(self.shape[1]) * self.unit_size[1] + self.center[1] - self.size[1] / 2 + \
+    #             self.unit_size[1] / 2
+    #         z = np.arange(self.shape[2]) * self.unit_size[2] + self.center[2] - self.size[2] / 2 + \
+    #             self.unit_size[2] / 2
+    #     else:
+    #         x = np.arange(self.shape[0])[slice[0]] * self.unit_size[0] + self.center[0] - self.size[
+    #             0] / 2 + self.unit_size[0] / 2
+    #         y = np.arange(self.shape[1])[slice[1]] * self.unit_size[1] + self.center[1] - self.size[
+    #             1] / 2 + self.unit_size[1] / 2
+    #         z = np.arange(self.shape[2])[slice[2]] * self.unit_size[2] + self.center[2] - self.size[
+    #             2] / 2 + self.unit_size[2] / 2
+    #     (y1, x1, z1) = np.meshgrid(y, x, z)
+    #     return x1, y1, z1
+    #
+    # def meshgrid_2d(self, slice = None):
+    #     if slice is None:
+    #         x = np.arange(self.shape[0]) * self.unit_size[0] + self.center[0] - self.size[0] / 2 + \
+    #             self.unit_size[0] / 2
+    #         y = np.arange(self.shape[1]) * self.unit_size[1] + self.center[1] - self.size[1] / 2 + \
+    #             self.unit_size[1] / 2
+    #     else:
+    #         x = np.arange(self.shape[0])[slice[0]] * self.unit_size[0] + self.center[0] - self.size[
+    #             0] / 2 + self.unit_size[0] / 2
+    #         y = np.arange(self.shape[1])[slice[1]] * self.unit_size[1] + self.center[1] - self.size[
+    #             1] / 2 + self.unit_size[1] / 2
+    #     (y1, x1) = np.meshgrid(y, x)
+    #     return x1, y1
+    #
+    # def meshgrid_1d(self, slice = None):
+    #     if slice is None:
+    #         z = np.arange(self.shape[2]) * self.unit_size[2] + self.center[2] - self.size[2] / 2 + \
+    #             self.unit_size[2] / 2
+    #     else:
+    #         z = np.arange(self.shape[2])[slice[2]] * self.unit_size[2] + self.center[2] - self.size[
+    #             2] / 2 + self.unit_size[2] / 2
+    #     return z
+
     def meshgrid(self, slice = None):
         if slice is None:
-            x = np.arange(self.shape[0]) * self.unit_size[0] + self.center[0] - self.size[0] / 2 + \
-                self.unit_size[0] / 2
-            y = np.arange(self.shape[1]) * self.unit_size[1] + self.center[1] - self.size[1] / 2 + \
-                self.unit_size[1] / 2
-            z = np.arange(self.shape[2]) * self.unit_size[2] + self.center[2] - self.size[2] / 2 + \
-                self.unit_size[2] / 2
+            x = np.arange(self.shape[0])
+            y = np.arange(self.shape[1])
+            z = np.arange(self.shape[2])
         else:
-            x = np.arange(self.shape[0])[slice[0]] * self.unit_size[0] + self.center[0] - self.size[
-                0] / 2 + self.unit_size[0] / 2
-            y = np.arange(self.shape[1])[slice[1]] * self.unit_size[1] + self.center[1] - self.size[
-                1] / 2 + self.unit_size[1] / 2
-            z = np.arange(self.shape[2])[slice[2]] * self.unit_size[2] + self.center[2] - self.size[
-                2] / 2 + self.unit_size[2] / 2
+            x = np.arange(self.shape[0])[slice[0]]
+            y = np.arange(self.shape[1])[slice[1]]
+            z = np.arange(self.shape[2])[slice[2]]
         (y1, x1, z1) = np.meshgrid(y, x, z)
         return x1, y1, z1
 
+    def grid_centers(self, slice = None):
+        x1, y1, z1 = self.meshgrid(slice)
+        pos_x = x1 * self.unit_size[0] + self.center[0] - self.size[0] / 2 + self.unit_size[0] / 2
+        pos_y = y1 * self.unit_size[1] + self.center[1] - self.size[1] / 2 + self.unit_size[1] / 2
+        pos_z = z1 * self.unit_size[2] + self.center[2] - self.size[2] / 2 + self.unit_size[2] / 2
+        return pos_x, pos_y, pos_z
+
     def meshgrid_2d(self, slice = None):
         if slice is None:
-            x = np.arange(self.shape[0]) * self.unit_size[0] + self.center[0] - self.size[0] / 2 + \
-                self.unit_size[0] / 2
-            y = np.arange(self.shape[1]) * self.unit_size[1] + self.center[1] - self.size[1] / 2 + \
-                self.unit_size[1] / 2
+            x = np.arange(self.shape[0])
+            y = np.arange(self.shape[1])
         else:
-            x = np.arange(self.shape[0])[slice[0]] * self.unit_size[0] + self.center[0] - self.size[
-                0] / 2 + self.unit_size[0] / 2
-            y = np.arange(self.shape[1])[slice[1]] * self.unit_size[1] + self.center[1] - self.size[
-                1] / 2 + self.unit_size[1] / 2
+            x = np.arange(self.shape[0])[slice[0]]
+            y = np.arange(self.shape[1])[slice[1]]
         (y1, x1) = np.meshgrid(y, x)
         return x1, y1
 
+    def grid_centers_2d(self, slice = None):
+        x1, y1 = self.meshgrid_2d(slice)
+        pos_x = x1 * self.unit_size[0] + self.center[0] - self.size[0] / 2 + self.unit_size[0] / 2
+        pos_y = y1 * self.unit_size[1] + self.center[1] - self.size[1] / 2 + self.unit_size[1] / 2
+        return pos_x, pos_y
+
     def meshgrid_1d(self, slice = None):
         if slice is None:
-            z = np.arange(self.shape[2]) * self.unit_size[2] + self.center[2] - self.size[2] / 2 + \
-                self.unit_size[2] / 2
+            z = np.arange(self.shape[2])
         else:
-            z = np.arange(self.shape[2])[slice[2]] * self.unit_size[2] + self.center[2] - self.size[
-                2] / 2 + self.unit_size[2] / 2
+            z = np.arange(self.shape[2])[slice[2]]
         return z
+
+    def grid_centers_1d(self, slice = None):
+        z1 = self.meshgrid_1d(slice)
+        pos_z = z1 * self.unit_size[2] + self.center[2] - self.size[2] / 2 + self.unit_size[2] / 2
+        return pos_z
 
     def theta(self):
         x1, y1 = self.meshgrid_2d()

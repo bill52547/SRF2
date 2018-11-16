@@ -18,7 +18,7 @@ from srf2.data.image import Image_3d
 
 __all__ = ('PsfMeta3d', 'PsfMeta2d',)
 
-_sqrt_pi = np.sqrt(np.pi)
+_sqrt_2_pi = np.sqrt(np.pi * 2)
 
 
 class PsfMeta3d(Meta):
@@ -38,55 +38,56 @@ class PsfMeta3d(Meta):
     def mu(self):
         return self._mu
 
-    def add_para_xy(self, image, pos = (0, 0), rang = 20):
+    def add_para_xy(self, image, pos = (0, 0, 0), rang = 20):
         if isinstance(image, Image_3d):
             image = image.transpose(('x', 'y', 'z'))
             ix1, iy1, iz1 = image.meta.locate(pos)
             slice_x = slice_y = slice(None, None)
-            slice_z = slice(int(iz1 - rang / image.meta.unit_size[2]),
-                            int(iz1 + rang / image.meta.unit_size[2]) + 1)
+            slice_z = slice(int(np.round(iz1) - rang / image.meta.unit_size[2]),
+                            int(np.round(iz1) + rang / image.meta.unit_size[2]) + 1)
 
-            x1, y1 = image.meta.meshgrid_2d([slice_x, slice_y, slice_z])
+            x1, y1 = image.meta.grid_centers_2d([slice_x, slice_y, slice_z])
             x1, y1 = x1 - pos[0], y1 - pos[1]
+            # print(np.max(x1))
+            # print(np.max(y1))
+            image_new_data = np.sum(image[slice_x, slice_y, slice_z].normalize().data, axis = 2) \
+                             / image.meta.unit_size[0] / image.meta.unit_size[1]
 
-            image_new_data = np.sum(image[slice_x, slice_y, slice_z].normalize().data, axis = 2)
-
-            p = _fitgaussian_2d(image_new_data, x1, y1, image.meta.unit_size[0],
-                                image.meta.unit_size[1])
+            p = _fitgaussian_2d(image_new_data, x1, y1)
 
             out_args = np.append(np.abs(np.array(p[:2])), [0])
             if self._mu.size == 0:
                 self._mu = np.array(pos)
                 self._sigma = np.array([out_args])
             else:
-                self._mu = np.vstack((self._mu, np.array(pos)))
+                self._mu = np.vstack((self._mu, [pos]))
                 self._sigma = np.vstack((self._sigma, out_args))
             return x1, y1, image_new_data, p[:2]
         else:
             raise NotImplementedError
 
-    def add_para_z(self, image, pos = (0, 0), rang = 20):
+    def add_para_z(self, image, pos = (0, 0, 0), rang = 20):
         if isinstance(image, Image_3d):
             func = _gaussian_1d
             image = image.transpose(('x', 'y', 'z'))
             ix1, iy1, iz1 = image.meta.locate(pos)
-            slice_x = slice(np.round(ix1 - rang / image.meta.unit_size[0]).astype(int),
-                            np.round(ix1 + rang / image.meta.unit_size[0]).astype(int) + 1)
-            slice_y = slice(np.round(iy1 - rang / image.meta.unit_size[1]).astype(int),
-                            np.round(iy1 + rang / image.meta.unit_size[1]).astype(int) + 1)
+            slice_x = slice(int(np.round(ix1) - rang / image.meta.unit_size[0]),
+                            int(np.round(ix1) + rang / image.meta.unit_size[0]) + 1)
+            slice_y = slice(int(np.round(iy1) - rang / image.meta.unit_size[1]),
+                            int(np.round(iy1) + rang / image.meta.unit_size[1]) + 1)
             slice_z = slice(None, None)
 
-            z1 = (image.meta.meshgrid_1d() - pos[2])
-            image_new_data = np.sum(image[slice_x, slice_y, slice_z].normalize().data, axis = (0,
-                                                                                               1))
-            p = _fitgaussian_1d(image_new_data, z1, image.meta.unit_size[2])
+            z1 = image.meta.grid_centers_1d([slice_x, slice_y, slice_z]) - pos[2]
+            image_new_data = np.sum(image[slice_x, slice_y, slice_z].normalize().data,
+                                    axis = (0, 1)) / image.meta.unit_size[2]
+            p = _fitgaussian_1d(image_new_data, z1)
 
             out_args = np.append([0, 0], np.abs(np.array(p[:1])))
             if self._mu.size == 0:
                 self._mu = np.array(pos)
                 self._sigma = np.array([out_args])
             else:
-                self._mu = np.vstack((self._mu, np.array(pos)))
+                self._mu = np.vstack((self._mu, pos))
                 self._sigma = np.vstack((self._sigma, out_args))
             return z1, image_new_data, p[:1]
 
@@ -123,6 +124,7 @@ class PsfMeta3d(Meta):
     #     else:
     #         raise NotImplementedError
 
+
 class PsfMeta2d(Meta):
     pass
 
@@ -130,16 +132,14 @@ class PsfMeta2d(Meta):
 def _gaussian_1d(sigz):
     sigz = abs(sigz)
 
-    return lambda z, k: k / _sqrt_pi / sigz * np.exp(-z ** 2 / 2 / sigz ** 2)
+    return lambda z: 1 / _sqrt_2_pi / sigz * np.exp(-z ** 2 / 2 / sigz ** 2)
 
 
 def _gaussian_2d(sigx, sigy):
     sigx = abs(sigx)
     sigy = abs(sigy)
-    return lambda x, y, kx, ky: kx * ky / _sqrt_pi ** 2 / sigx / sigy * np.exp(-x ** 2 / 2 /
-                                                                               sigx ** 2) \
-                                * \
-                                np.exp(-y ** 2 / 2 / sigy ** 2)
+    return lambda x, y: 1 / _sqrt_2_pi ** 2 / sigx / sigy * np.exp(
+        -x ** 2 / 2 / sigx ** 2) * np.exp(-y ** 2 / 2 / sigy ** 2)
 
 
 def _gaussian_3d_xy(x_y_z_t, sigx, sigy):
@@ -153,7 +153,7 @@ def _gaussian_3d_xy(x_y_z_t, sigx, sigy):
     x1 = x * np.cos(t) + y * np.sin(t)
     y1 = -x * np.sin(t) + y * np.cos(t)
 
-    return 1 / _sqrt_pi ** 2 / sigx / sigy * np.exp(-x1 ** 2 / 2 / sigx ** 2) * np.exp(
+    return 1 / _sqrt_2_pi ** 2 / sigx / sigy * np.exp(-x1 ** 2 / 2 / sigx ** 2) * np.exp(
         - y1 ** 2 / 2 / sigy ** 2)
 
 
@@ -162,27 +162,25 @@ def _gaussian_3d(sigx, sigy, sigz):
     sigy = abs(sigy)
     sigz = abs(sigz)
 
-    return lambda x, y, z, kx, ky, kz: kx * ky * kz / _sqrt_pi ** 3 / sigx / sigy / sigz * np.exp(
+    return lambda x, y, z: 1 / _sqrt_2_pi ** 3 / sigx / sigy / sigz * np.exp(
         -x ** 2 / 2 / sigx ** 2) * np.exp(- y ** 2 / 2 / sigy ** 2) * np.exp(
         -z ** 2 / 2 / sigz ** 2)
 
 
-def _fitgaussian_2d(data, x, y, kx, ky):
-    errorfunction = lambda p: np.ravel(_gaussian_2d(*p)(x, y, kx, ky) -
-                                       data)
+def _fitgaussian_2d(data, x, y):
+    errorfunction = lambda p: np.ravel(_gaussian_2d(*p)(x, y) - data)
     p, success = opt.leastsq(errorfunction, np.array([1, 1]))
     return p
 
 
-def _fitgaussian_1d(data, x, kx):
-    errorfunction = lambda p: np.ravel(_gaussian_1d(*p)(x, kx) -
-                                       data)
+def _fitgaussian_1d(data, x):
+    errorfunction = lambda p: np.ravel(_gaussian_1d(*p)(x) - data)
     p, success = opt.leastsq(errorfunction, np.array([1]))
     return p
 
 
-def _fit_gaussian_3d(data, x, y, z, kx, ky, kz):
-    errorfunction = lambda p: np.ravel(_gaussian_3d(*p)(x, y, z, kx, ky, kz) - data)
+def _fit_gaussian_3d(data, x, y, z):
+    errorfunction = lambda p: np.ravel(_gaussian_3d(*p)(x, y, z) - data)
     p, success = opt.leastsq(errorfunction, np.array([1, 1, 1]))
     return p
 
