@@ -106,9 +106,6 @@ venv.bak/
 #hdf5 files
 *.h5
 
-#jupyter notebook files
-*.ipynb
-
 # temporal folder
 tmp
 

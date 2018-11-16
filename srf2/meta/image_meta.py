@@ -176,8 +176,14 @@ class Image_meta_2d(Image_meta):
         y1, x1 = np.meshgrid(y, x)
         return x1, y1
 
+    def grid_centers(self, slice = None):
+        x1, y1 = self.meshgrid(slice)
+        pos_x = x1 * self.unit_size[0] + self.center[0] - self.size[0] / 2 + self.unit_size[0] / 2
+        pos_y = y1 * self.unit_size[1] + self.center[1] - self.size[1] / 2 + self.unit_size[1] / 2
+        return pos_x, pos_y
+
     def theta(self):
-        x1, y1 = self.meshgrid()
+        x1, y1 = self.grid_centers()
         return np.arctan2(y1, x1)
 
     def polar_meshgrid(self):
