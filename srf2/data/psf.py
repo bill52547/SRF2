@@ -177,6 +177,9 @@ class PSF_3d:
                 row = np.where(gk > eps)[0]
                 col = ind * np.ones(row.size)
                 data = gk[row]
+                # col = np.where(gk > eps)[0]
+                # row = ind * np.ones(col.shape)
+                # data = gk[col]
                 lil_matrix_xy[row, col] = data
 
         self._matrix_xy = lil_matrix_xy.tocsr()
@@ -184,8 +187,7 @@ class PSF_3d:
 
     def generate_matrix_z(self):
         # z1 = self.image_meta.meshgrid_1d()
-        z1 = self.image_meta.meshgrid_1d()
-        z1 = np.abs(z1)
+        z1 = self.image_meta.grid_centers_1d()
         z0 = np.abs(self.meta.mu[:, 2])
 
         lil_matrix_z = sparse.lil_matrix((self.image_meta.n_z, self.image_meta.n_z),
@@ -200,15 +202,20 @@ class PSF_3d:
         else:
             fsigz = interp.interp1d(z0[ind_z], self.meta.sigma[ind_z, 2], kind = 'quadratic',
                                     fill_value = 'extrapolate')
-            sigma_z = fsigz(z1)
+            sigma_z = fsigz(np.abs(z1))
 
         print('Generating psf matrix in z')
         for iz in tqdm(np.arange(self.image_meta.n_z)):
+            if z1[iz] > np.max(z0):
+                continue
             img_tmp = _gaussian_1d(z1 - z1[iz], sigma_z[iz])
             gk = img_tmp.flatten()
-            row = np.where(gk > eps)[0]
-            col = iz * np.ones(row.shape)
-            data = gk[row]
+            # row = np.where(gk > eps)[0]
+            # col = iz * np.ones(row.size)
+            # data = gk[row]
+            col = np.where(gk > eps)[0]
+            row = iz * np.ones(col.shape)
+            data = gk[col]
             lil_matrix_z[row, col] = data
         self._matrix_z = lil_matrix_z.tocsr()
         return self.matrix_z

@@ -82,11 +82,12 @@ class PsfMeta3d(Meta):
                                     axis = (0, 1)) / image.meta.unit_size[2]
             p = _fitgaussian_1d(image_new_data, z1)
 
-            out_args = np.append([0, 0], np.abs(np.array(p[:1])))
+            out_args = np.append([0, 0], np.abs(np.array(p[0])))
             if self._mu.size == 0:
                 self._mu = np.array(pos)
                 self._sigma = np.array([out_args])
             else:
+                # self._mu = np.vstack((self._mu, pos[:2] + tuple(p[1])))
                 self._mu = np.vstack((self._mu, pos))
                 self._sigma = np.vstack((self._sigma, out_args))
             return z1, image_new_data, p[:1]
@@ -168,21 +169,24 @@ def _gaussian_3d(sigx, sigy, sigz):
 
 
 def _fitgaussian_2d(data, x, y):
-    errorfunction = lambda p: np.ravel(_gaussian_2d(*p)(x, y) - data)
-    p, success = opt.leastsq(errorfunction, np.array([1, 1]))
-    return p
+    def _error_function(p):
+        return np.ravel(_gaussian_2d(*p)(x, y) - data)
+
+    return opt.leastsq(_error_function, np.array([1, 1]))
 
 
 def _fitgaussian_1d(data, x):
-    errorfunction = lambda p: np.ravel(_gaussian_1d(*p)(x) - data)
-    p, success = opt.leastsq(errorfunction, np.array([1]))
-    return p
+    def _error_function(p):
+        return np.ravel(_gaussian_2d(*p)(x) - data)
+
+    return opt.leastsq(_error_function, np.array([1]))
 
 
 def _fit_gaussian_3d(data, x, y, z):
-    errorfunction = lambda p: np.ravel(_gaussian_3d(*p)(x, y, z) - data)
-    p, success = opt.leastsq(errorfunction, np.array([1, 1, 1]))
-    return p
+    def _error_function(p):
+        return np.ravel(_gaussian_2d(*p)(x, y, z) - data)
+
+    return opt.leastsq(_error_function, np.array([1, 1, 1]))
 
 #
 # def _gaussian_3d(x_y_z_t, mux, muy, muz, sigx, sigy, sigz):

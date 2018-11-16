@@ -302,7 +302,7 @@ class Image_meta_3d(Image_meta):
         return pos_z
 
     def theta(self):
-        x1, y1 = self.meshgrid_2d()
+        x1, y1 = self.grid_centers_2d()
         return np.arctan2(y1, x1)
 
     def cylindral_meshgrid(self):
