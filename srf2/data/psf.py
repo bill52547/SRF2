@@ -176,7 +176,7 @@ class PSF_3d:
                 gk = img_tmp.flatten()
                 row = np.where(gk > eps)[0]
                 col = ind * np.ones(row.size)
-                data = gk[row]
+                data = gk[row] * self.image_meta.unit_size[0] * self.image_meta.unit_size[1]
                 # col = np.where(gk > eps)[0]
                 # row = ind * np.ones(col.shape)
                 # data = gk[col]
@@ -215,7 +215,7 @@ class PSF_3d:
             # data = gk[row]
             col = np.where(gk > eps)[0]
             row = iz * np.ones(col.shape)
-            data = gk[col]
+            data = gk[col] * self.image_meta.unit_size[2]
             lil_matrix_z[row, col] = data
         self._matrix_z = lil_matrix_z.tocsr()
         return self.matrix_z
