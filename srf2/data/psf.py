@@ -26,21 +26,14 @@ eps = 1e-8
 
 class PSF_3d:
     def __init__(self, meta: PsfMeta3d = PsfMeta3d(), image_meta: Image_meta_3d =
-    Image_meta_3d(), matrix_xy = None, matrix_z = None, matrix = None):
+    Image_meta_3d(), matrix_xy = None, matrix_z = None, matrix_xy_full = None, matrix_z_full =
+                 None):
         self._meta = meta
         self._image_meta = image_meta
-        if matrix_xy is not None:
-            self._matrix_xy = matrix_xy
-            self._matrix_z = matrix_z
-        else:
-            self._matrix_xy = sparse.csr_matrix((image_meta.n_xy, image_meta.n_xy),
-                                                dtype = np.float32)
-            self._matrix_z = sparse.csr_matrix((image_meta.n_z, image_meta.n_z), dtype = np.float32)
-        if matrix is not None:
-            self._matrix = matrix
-        else:
-            self._matrix = sparse.csr_matrix((image_meta.n_all, image_meta.n_all),
-                                             dtype = np.float32)
+        self._matrix_xy = matrix_xy
+        self._matrix_z = matrix_z
+        self._matrix_xy_full = matrix_xy_full
+        self._matrix_z_full = matrix_z_full
 
     @property
     def meta(self):
@@ -57,6 +50,14 @@ class PSF_3d:
     @property
     def matrix_z(self):
         return self._matrix_z
+
+    @property
+    def matrix_xy_full(self):
+        return self._matrix_xy_full
+
+    @property
+    def matrix_z_full(self):
+        return self._matrix_z_full
 
     @property
     def matrix(self):
@@ -79,15 +80,23 @@ class PSF_3d:
             group.create_dataset('_matrix_z_row', data = row, compression = "gzip")
             group.create_dataset('_matrix_z_col', data = col, compression = "gzip")
             group.create_dataset('_matrix_z_data', data = data, compression = "gzip")
-            #
-            # row, col = self.matrix.nonzero()
-            # data = self.matrix.data
-            # group.create_dataset('_matrix_full_row', data = row, compression = "gzip")
-            # group.create_dataset('_matrix_full_col', data = col, compression = "gzip")
-            # group.create_dataset('_matrix_full_data', data = data, compression = "gzip")
+
+            if self._matrix_xy_full is not None:
+                row, col = self.matrix_xy_full.nonzero()
+                data = self.matrix_xy_full.data
+                group.create_dataset('_matrix_xy_full_row', data = row, compression = "gzip")
+                group.create_dataset('_matrix_xy_full_col', data = col, compression = "gzip")
+                group.create_dataset('_matrix_xy_full_data', data = data, compression = "gzip")
+
+            if self._matrix_z_full is not None:
+                row, col = self.matrix_z_full.nonzero()
+                data = self.matrix_z_full.data
+                group.create_dataset('_matrix_z_full_row', data = row, compression = "gzip")
+                group.create_dataset('_matrix_z_full_col', data = col, compression = "gzip")
+                group.create_dataset('_matrix_z_full_data', data = data, compression = "gzip")
 
     @classmethod
-    def load_h5(cls, path = None):
+    def load_h5(cls, path = None, name = ''):
         if path is None:
             path = 'tmp' + cls.__name__ + '.h5'
 
@@ -108,43 +117,56 @@ class PSF_3d:
             matrix_z = sparse.csr_matrix((data, (row, col)),
                                          shape = (image_meta.n_z, image_meta.n_z),
                                          dtype = np.float32)
+            if name == 'all':
+                row = np.array(dataset['_matrix_xy_full_row'])
+                col = np.array(dataset['_matrix_xy_full_col'])
+                data = np.array(dataset['_matrix_xy_full_data'])
+                matrix_xy_full = sparse.csr_matrix((data, (row, col)),
+                                                   shape = (image_meta.n_all, image_meta.n_all),
+                                                   dtype = np.float32)
 
-            # row = np.array(dataset['_matrix_full_row'])
-            # col = np.array(dataset['_matrix_full_col'])
-            # data = np.array(dataset['_matrix_full_data'])
-            # matrix_full = sparse.csr_matrix(((row, col), data),
-            #                                 shape = (image_meta.n_z, image_meta.n_z),
-            #                                 dtype = np.float32)
+                row = np.array(dataset['_matrix_z_full_row'])
+                col = np.array(dataset['_matrix_z_full_col'])
+                data = np.array(dataset['_matrix_z_full_data'])
+                matrix_z_full = sparse.csr_matrix((data, (row, col)),
+                                                  shape = (image_meta.n_all, image_meta.n_all),
+                                                  dtype = np.float32)
+                return PSF_3d(meta, image_meta, matrix_xy, matrix_z, matrix_xy_full, matrix_z_full)
+
             return PSF_3d(meta, image_meta, matrix_xy, matrix_z)
 
-    def _generate_matrix_xy_full(self):
+    def generate_matrix_xy_full(self):
         lil_xy = sparse.lil_matrix((self.image_meta.n_all, self.image_meta.n_all),
                                    dtype = np.float32)
         row, col = self.matrix_xy.nonzero()
         data = self.matrix_xy.data
-        print('Generating full PSF matrix z')
+        print('Generating full PSF matrix xy')
         for iz in tqdm(np.arange(self.image_meta.n_z)):
             lil_xy[row * self.image_meta.n_z + iz, col * self.image_meta.n_z + iz] = data
-        return lil_xy.tocsr()
+        self._matrix_xy_full = lil_xy.tocsr()
+        return self.matrix_xy_full
 
-    def _generate_matrix_z_full(self):
+    def generate_matrix_z_full(self):
         lil_z = sparse.lil_matrix((self.image_meta.n_all, self.image_meta.n_all),
                                   dtype = np.float32)
         row, col = self.matrix_z.nonzero()
         data = self.matrix_z.data
-        print('Generating full PSF matrix xy')
+        print('Generating full PSF matrix z')
         for ix in tqdm(np.arange(self.image_meta.n_x)):
             for iy in np.arange(self.image_meta.n_y):
                 ind = iy + ix * self.image_meta.n_y
                 lil_z[row + self.image_meta.n_z * ind, col + self.image_meta.n_z * ind] = data
-        return lil_z.tocsr()
+        self._matrix_z_full = lil_z.tocsr()
+        return self.matrix_z_full
 
-    def generate_matrix_full(self):
-        print('Generating full PSF matrix')
-        return self._generate_matrix_xy_full() * self._generate_matrix_z_full()
+    def generate_matrix_all(self):
+        print('Generating all PSF matrix')
+        self.generate_matrix_xy()
+        self.generate_matrix_z()
+        self.generate_matrix_xy_full()
+        self.generate_matrix_z_full()
 
     def generate_matrix_xy(self):
-        # x1, y1 = self.image_meta.meshgrid_2d()
         x1, y1 = self.image_meta.grid_centers_2d()
         R1 = np.sqrt(x1 ** 2 + y1 ** 2)
         R0 = np.sqrt(self.meta.mu[:, 0] ** 2 + self.meta.mu[:, 1] ** 2)
