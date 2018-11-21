@@ -10,70 +10,78 @@
 @desc: new version of Scalable Reconstruction Framework for Medical Imaging
 '''
 
-from abc import ABCMeta
+from abc import abstractmethod
 
 import h5py
 
-__all__ = ('Meta', 'Singleton',)
+__all__ = ('Attribute',)
 
 
-def _str_to_ascii(str):
-    return list(map(ord, str))
+def _encode_utf8(val):
+    if val is tuple:
+        return tuple([v.encode('utf-8') if v is str else v for v in val])
+    else:
+        return val.encode('utf-8') if val is str else val
 
 
-def _ascii_to_str(num):
-    from functools import reduce
-    return reduce(lambda x, y: x + y, list(map(chr, num)))
+def _decode_utf8(val):
+    if val is tuple:
+        return tuple([v.decode('utf-8') if v is str else v for v in val])
+    else:
+        return val.decode('utf-8') if val is str else val
 
 
-class Meta(metaclass = ABCMeta):
+class Attribute(object):
+    ''' An base attibute class.
+    A attribute is an object who consist the attribute to describe another object. More specific, a
+    attribute object only contains small descriptions, which can only be a tuple or a value/string (
+    <64k) and can be stored in a hdf5 attibute.
+    '''
+
     def __eq__(self, other):
+        '''**Equality verify**
+        :param other:
+        :return: bool
+        '''
         if self.__class__ != other.__class__:
             return False
         return self.__dict__ == other.__dict__
 
-
     def save_h5(self, path = None, mode = 'w'):
-        from numbers import Number
-        group_name = self.__class__.__name__
-        attrs_dict = self.__dict__
+        '''**save to hdf5 file**
+        save a attribute object to hdf5 file, in term of hdf5 group/attrs. It is saved in a group
+        with name of this class.
+        :param path: should be end with '.h5' or 'hdf5'
+        :param mode: 'w' by default.
+        :return: None
+        '''
+
+
         if path is None:
-            path = 'tmp' + group_name + '.h5'
+            path = 'tmp' + self.__class__.__name__ + '.h5'
+
+        if not str.endswith(path, 'h5') and not str.endswith(path, 'hdf5'):
+            raise ValueError(self.__class__.save_h5.__qualname__,
+                             ' should have path input ends with h5 or hdf5')
+
         with h5py.File(path, mode) as fout:
-            group = fout.create_group(group_name)
-            for key, value in attrs_dict.items():
-                if not isinstance(value, Number) and isinstance(value[0], str):
-                    value = [12300111] + _str_to_ascii(value)
-                group.attrs.create(key, data = value)
+            group = fout.create_group(self.__class__.__name__)
+            for key, value in self.__dict__.items():
+                group.attrs.create(key, data = _encode_utf8(value))
 
-    @classmethod
     def load_h5(cls, path = None):
-        from numbers import Number
-        instance = cls()
-        group_name = instance.__class__.__name__
-        attrs_dict = instance.__dict__
+        if cls is Attribute:
+            return NotImplementedError
+
+        dict_attrs = cls().__dict__
         if path is None:
-            path = 'tmp' + group_name + '.h5'
+            path = 'tmp' + cls.__name__ + '.h5'
         with h5py.File(path, 'r') as fin:
-            group = fin[group_name]
-            args = tuple([])
-            for key in attrs_dict.keys():
-                tmp = group.attrs[key]
-                if isinstance(tmp, Number):
-                    args += (tmp,)
-                else:
-                    if tmp.flatten()[0] == 12300111:
-                        tmp = _ascii_to_str(tmp[1:])
-                    args += tuple(tmp),
-            return cls(*args)
+            group = fin[cls.__name__]
+            for key in dict_attrs.keys():
+                dict_attrs[key] = _decode_utf8(group.attrs[key])
+            return cls(**dict_attrs)
 
-
-class Singleton(metaclass = ABCMeta):
-    instance = None
-
-    def __new__(cls, *args, **kwargs):
-        if cls.instance is None:
-            cls.instance = super().__new__(cls)
-        return cls.instance
-
-# TODO: only allow one-char input now
+    @abstractmethod
+    def map(self, _):
+        raise NotImplementedError('map method is valid for ', self.__class__, ' object.')
