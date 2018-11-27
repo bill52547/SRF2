@@ -1,133 +1,111 @@
-import h5py
 import numpy as np
+from ..attrs.imageattr import *
+from ..core.abstracts import Object
 
-from srf2.meta.image_meta import *
-
-__all__ = ('Image', 'Image_2d', 'Image_3d',)
+__all__ = ('Image', 'Image0D', 'Image1D', 'Image2D', 'Image3D', 'Image4D',)
 
 
-# noinspection PyPep8Naming
-class Image:
-    def __init__(self, data = None, meta: Image_meta = None):
-        if meta is None and data is None:
-            meta = Image_meta()
-            data = np.zeros(meta.shape, dtype = np.float32)
+class Image(Object):
+    _data: np.ndarray
+    _attr: ImageAttr
+
+    def __init__(self, data=None, attr: ImageAttr = None):
+        if attr is None and data is None:
+            attr = ImageAttr()
+            data = np.zeros(attr.shape, dtype=np.float32)
 
         if data is None:
-            data = np.zeros(meta.shape, dtype = np.float32)
+            data = np.zeros(attr.shape, dtype=np.float32)
 
-        if meta is None:
-            meta = Image_meta(data.shape)
+        if attr is None:
+            attr = ImageAttr(data.shape)
 
         if not isinstance(data, np.ndarray):
             raise TypeError('data must be a np.ndarray object')
 
-        if data.shape != meta.shape:
-            raise ValueError('data must has same shape with its meta')
+        if data.shape != attr.shape:
+            raise ValueError('data must has same shape with its attrs')
 
         data.astype(np.float32)
-
         self._data = data
-        self._meta = meta
-
-    def __eq__(self, other):
-        if self.__class__ != other.__class__:
-            return False
-
-        return self.meta == other.meta and np.array_equal(self.data, other.data)
+        self._attr = attr
 
     @property
     def data(self):
         return self._data
 
     @property
-    def meta(self):
-        return self._meta
+    def attr(self):
+        return self._attr
 
     @property
     def T(self):
         return self.transpose()
 
     def normalize(self):
-        sum_data = np.sum(self.data)
-        return Image(self.data / sum_data, self.meta)
+        def _normalize(data):
+            return data / np.sum(data)
 
-        # return Image(self.data / sum_data / self.meta.unit_size[0] / self.meta.unit_size[1] /
-        #              self.meta.unit_size[2], self.meta)
+        return self.map(_normalize)
 
-
-    def transpose(self, perm = None):
+    def transpose(self, perm=None):
         if perm is None:
-            perm = np.arange(self.meta.ndim)[::-1]
-
+            perm = np.arange(self.attr.ndim)[::-1]
         if set(perm).issubset({'x', 'y', 'z'}):
-            perm = [self.meta.dims.index(e) for e in perm]
+            perm = [self.attr.dims.index(e) for e in perm]
 
-        return Image(self.data.transpose(perm), self.meta.transpose(perm))
+        def _transpose(data, attr):
+            return data.transpose(perm), attr.transpose(attr)
+
+        return self.map(_transpose)
 
     def map(self, f):
-        return Image(*f(self.data, self.meta))
+        return self.__class__(*f(self.data, self.attr))
 
     def __getitem__(self, item):
-        def slice_kernel(item):
-            def kernel(data, meta):
-                return data[item], meta[item]
-
-            return kernel
-
-        return self.map(slice_kernel(item))
-
-    def save_h5(self, path = None, mode = 'w'):
-        if path is None:
-            path = 'tmp' + self.__class__.__name__ + '.h5'
-        self.meta.save_h5(path, mode)
-        with h5py.File(path, 'r+') as fout:
-            group = fout.create_group('Image_data')
-            group.create_dataset('_data', data = self.data, compression = "gzip")
-
-    @classmethod
-    def load_h5(cls, path = None):
-        if path is None:
-            path = 'tmp' + cls.__name__ + '.h5'
-        meta = Image_meta.load_h5(path)
-        with h5py.File(path, 'r') as fin:
-            dataset = fin['Image_data']
-            data = np.array(dataset['_data'])
-            return cls(data, meta)
+        attr = self.attr[item]
+        data = self.data[item]
+        count_nonzero = attr.shape.count(1)
+        if count_nonzero == 1:
+            return Image1D(data, attr)
+        elif count_nonzero == 2:
+            return Image2D(data, attr)
+        elif count_nonzero == 3:
+            return Image3D(data, attr)
+        else:
+            raise NotImplementedError
 
 
-# noinspection PyPep8Naming
-class Image_2d(Image):
-    def __init__(self, data = None, meta: Image_meta_2d = None):
-        super().__init__(data, meta)
-        if meta.ndim != 2:
+class Image0D(Image):
+    def __init__(self, data=None, attr: Image1DAttr = None):
+        super().__init__(data, attr)
+        if self.attr.ndim != 0:
+            raise ValueError(self.__class__.__name__, ' is only consistent with 0D case')
+
+
+class Image1D(Image):
+    def __init__(self, data=None, attr: Image1DAttr = None):
+        super().__init__(data, attr)
+        if self.attr.ndim != 1:
+            raise ValueError(self.__class__.__name__, ' is only consistent with 1D case')
+
+
+class Image2D(Image):
+    def __init__(self, data=None, attr: Image2DAttr = None):
+        if self.attr.ndim != 2:
             raise ValueError(self.__class__.__name__, ' is only consistent with 2D case')
-
-    def map(self, f):
-        return Image_2d(*f(self.data, self.meta))
+        super().__init__(data, attr)
 
 
-# noinspection PyPep8Naming
-class Image_3d(Image):
-    def __init__(self, data = None, meta: Image_meta_3d = None):
-        if meta is None and data is None:
-            meta = Image_meta_3d()
-            data = np.zeros(meta.shape, dtype = np.float32)
+class Image3D(Image):
+    def __init__(self, data=None, attr: Image3DAttr = None):
+        super().__init__(data, attr)
+        if self.attr.ndim != 3:
+            raise ValueError(self.__class__.__name__, ' is only consistent with 3D case')
 
-        if data is None:
-            data = np.zeros(meta.shape, dtype = np.float32)
 
-        if meta is None:
-            meta = Image_meta_3d(data.shape)
-
-        if not isinstance(data, np.ndarray):
-            raise TypeError('data must be a np.ndarray object')
-
-        if data.shape != meta.shape:
-            raise ValueError('data must has same shape with its meta')
-
-        data.astype(np.float32)
-        super().__init__(data, meta)
-
-    def map(self, f):
-        return Image_3d(*f(self.data, self.meta))
+class Image4D(Image):
+    def __init__(self, data=None, attr: Image4DAttr = None):
+        super().__init__(data, attr)
+        if self.attr.ndim != 4:
+            raise ValueError(self.__class__.__name__, ' is only consistent with 2D case')

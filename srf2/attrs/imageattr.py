@@ -4,25 +4,24 @@ from abc import abstractmethod
 
 from srf2.core.abstracts import Attribute
 
-__all__ = ('Image_1d_attr', 'Image_2d_attr', 'Image_3d_attr', 'Image_4d_attr',)
+__all__ = ('ImageAttr', 'Image0DAttr', 'Image1DAttr', 'Image2DAttr', 'Image3DAttr', 'Image4DAttr',)
 
 
-class Image_attr(Attribute):
+class ImageAttr(Attribute):
+    _shape: tuple
+    _center: tuple
+    _size: tuple
+    _dims: tuple
+
     def __init__(self, shape=None, center=None, size=None, dims=None):
-        self._shape = tuple(shape) if shape is not None else (1, 1, 1)
-        self._center = tuple(center) if center is not None else (0, 0, 0)
-        self._size = tuple(size) if size is not None else (1, 1, 1)
-        self._dims = tuple(dims) if dims is not None else ('x', 'y', 'z')
+        self._shape = tuple(shape) if shape is not None else tuple([])
+        self._center = tuple(center) if center is not None else tuple([])
+        self._size = tuple(size) if size is not None else tuple([])
+        self._dims = tuple(dims) if dims is not None else tuple([])
         if not (len(self._shape) == len(self._center) == len(self._size) == len(self._dims)):
             raise ValueError(self.__dict__, ' should have same lengths')
-        if len(self._shape) < 1 or len(self._shape) > 3:
+        if len(self._shape) < 0 or len(self._shape) > 4:
             raise NotImplemented
-
-    def _dim_to_int(self, dim: str = None):
-        if dim is None:
-            return slice(None)
-        else:
-            return [self._dims.index(s) for s in dim]
 
     @property
     def shape(self):
@@ -52,6 +51,34 @@ class Image_attr(Attribute):
     def T(self):
         return self.transpose()
 
+    @property
+    def n_x(self):
+        if 'x' in self.dims:
+            return self.num('x')
+        else:
+            return 1
+
+    @property
+    def n_y(self):
+        if 'y' in self.dims:
+            return self.num('y')
+        else:
+            return 1
+
+    @property
+    def n_z(self):
+        if 'z' in self.dims:
+            return self.num('z')
+        else:
+            return 1
+
+    @property
+    def n_t(self):
+        if 't' in self.dims:
+            return self.num('t')
+        else:
+            return 1
+
     def num(self, dim=None):
         if dim is str:
             dim = [s for s in dim]
@@ -61,9 +88,8 @@ class Image_attr(Attribute):
         nums = self.shape[dim]
         return reduce(lambda x, y: x * y, nums)
 
-    @abstractmethod
     def map(self, f):
-        pass
+        return self.__class__(*f(self.shape, self.center, self.size, self.size))
 
     @abstractmethod
     def meshgrid(self):
@@ -102,11 +128,11 @@ class Image_attr(Attribute):
 
         count_nonzero = shape.count(1)
         if count_nonzero == 1:
-            return Image_1d_attr(shape, center, size, dims)
+            return Image1DAttr(shape, center, size, dims)
         elif count_nonzero == 2:
-            return Image_2d_attr(shape, center, size, dims)
+            return Image2DAttr(shape, center, size, dims)
         elif count_nonzero == 3:
-            return Image_3d_attr(shape, center, size, dims)
+            return Image3DAttr(shape, center, size, dims)
         else:
             raise NotImplementedError
 
@@ -130,14 +156,11 @@ class Image_attr(Attribute):
         return self.__class__(shape, center, size, dims)
 
 
-class Image_1d_attr(Image_attr):
-    def __init__(self, shape=(1,), center=(0,), size=(1,), dims=('x',)):
+class Image0DAttr(ImageAttr):
+    def __init__(self, shape=None, center=None, size=None, dims=None):
         super().__init__(shape, center, size, dims)
-        if len(shape) != 1:
-            raise ValueError(self.__class__, ' is only consistent with 2D case')
-
-    def map(self, f):
-        return Image_1d_attr(*f(self.shape, self.center, self.size, self.dims))
+        if len(self.shape) != 0:
+            raise ValueError(self.__class__, ' is only consistent with 0D case')
 
     def meshgrid(self):
         return np.arange(self.shape[0])
@@ -146,14 +169,24 @@ class Image_1d_attr(Image_attr):
         return self.meshgrid() * self.unit_size[0] + self.center[0] - self.size[0] / 2 + self.unit_size[0] / 2
 
 
-class Image_2d_attr(Image_attr):
+class Image1DAttr(ImageAttr):
+    def __init__(self, shape=(1,), center=(0,), size=(1,), dims=('x',)):
+        super().__init__(shape, center, size, dims)
+        if len(self.shape) != 1:
+            raise ValueError(self.__class__, ' is only consistent with 1D case')
+
+    def meshgrid(self):
+        return np.arange(self.shape[0])
+
+    def unit_centers(self):
+        return self.meshgrid() * self.unit_size[0] + self.center[0] - self.size[0] / 2 + self.unit_size[0] / 2
+
+
+class Image2DAttr(ImageAttr):
     def __init__(self, shape=(1, 1), center=(0, 0), size=(1, 1), dims=('x', 'y')):
         super().__init__(shape, center, size, dims)
-        if len(shape) != 2:
+        if len(self.shape) != 2:
             raise ValueError(self.__class__, ' is only consistent with 2D case')
-
-    def map(self, f):
-        return Image_2d_attr(*f(self.shape, self.center, self.size, self.dims))
 
     def meshgrid(self, slice=None):
         x = np.arange(self.shape[0])
@@ -167,20 +200,13 @@ class Image_2d_attr(Image_attr):
         pos_y = y1 * self.unit_size[1] + self.center[1] - self.size[1] / 2 + self.unit_size[1] / 2
         return pos_x, pos_y
 
-    def theta(self):
-        x1, y1 = self.unit_centers()
-        return np.arctan2(y1, x1)
 
-
-class Image_3d_attr(Image_attr):
+class Image3DAttr(ImageAttr):
     def __init__(self, shape=(1, 1, 1), center=(0, 0, 0), size=(1, 1, 1),
                  dims=('x', 'y', 'z')):
         super().__init__(shape, center, size, dims)
-        if len(shape) != 3:
-            raise ValueError(self.__class__, ' is only consistent with 2D case')
-
-    def map(self, f):
-        return Image_3d_attr(*f(self.shape, self.center, self.size, self.dims))
+        if len(self.shape) != 3:
+            raise ValueError(self.__class__, ' is only consistent with 3D case')
 
     def meshgrid(self):
         x = np.arange(self.shape[0])
@@ -196,3 +222,10 @@ class Image_3d_attr(Image_attr):
         pos_z = z1 * self.unit_size[2] + self.center[2] - self.size[2] / 2 + self.unit_size[2] / 2
         return pos_x, pos_y, pos_z
 
+
+class Image4DAttr(ImageAttr):
+    def meshgrid(self):
+        raise NotImplementedError
+
+    def unit_centers(self):
+        raise NotImplementedError
