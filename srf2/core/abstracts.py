@@ -11,10 +11,10 @@
 '''
 
 from abc import abstractmethod
-
+import numpy as np
 import h5py
 
-__all__ = ('Attribute',)
+__all__ = ('Attribute', 'Object')
 
 
 def _encode_utf8(val):
@@ -47,7 +47,7 @@ class Attribute(object):
             return False
         return self.__dict__ == other.__dict__
 
-    def save_h5(self, path = None, mode = 'w'):
+    def save_h5(self, path=None, mode='w'):
         '''**save to hdf5 file**
         save a attribute object to hdf5 file, in term of hdf5 group/attrs. It is saved in a group
         with name of this class.
@@ -55,7 +55,6 @@ class Attribute(object):
         :param mode: 'w' by default.
         :return: None
         '''
-
 
         if path is None:
             path = 'tmp' + self.__class__.__name__ + '.h5'
@@ -67,9 +66,10 @@ class Attribute(object):
         with h5py.File(path, mode) as fout:
             group = fout.create_group(self.__class__.__name__)
             for key, value in self.__dict__.items():
-                group.attrs.create(key, data = _encode_utf8(value))
+                group.attrs.create(key, data=_encode_utf8(value))
 
-    def load_h5(cls, path = None):
+    @classmethod
+    def load_h5(cls, path=None):
         if cls is Attribute:
             return NotImplementedError
 
@@ -82,6 +82,61 @@ class Attribute(object):
                 dict_attrs[key] = _decode_utf8(group.attrs[key])
             return cls(**dict_attrs)
 
+    def __str__(self):
+        out_str = f'{type(self)} object at {hex(id(self))}\n'
+        for key in self.__dict__.keys():
+            out_str += f'{key}: {type(self.__dict__[key])} = {self.__dict__[key]}\n'
+        return out_str
+
     @abstractmethod
     def map(self, _):
         raise NotImplementedError('map method is valid for ', self.__class__, ' object.')
+
+
+class Object(object):
+    @property
+    def data(self):
+        return self._data
+
+    @property
+    def attr(self):
+        return self._attr
+
+    def save_h5(self, path=None, mode='w'):
+        '''**save to hdf5 file**
+        save a attribute object to hdf5 file, in term of hdf5 group/attrs. It is saved in a group
+        with name of this class.
+        :param path: should be end with '.h5' or 'hdf5'
+        :param mode: 'w' by default.
+        :return: None
+        '''
+
+        if path is None:
+            path = 'tmp' + self.__class__.__name__ + '.h5'
+
+        if not str.endswith(path, 'h5') and not str.endswith(path, 'hdf5'):
+            raise ValueError(self.__class__.save_h5.__qualname__,
+                             ' should have path input ends with h5 or hdf5')
+
+        self.attr.save_h5(path, mode)
+        with h5py.File(path, 'r+') as fout:
+            fout.create_dataset('_data', data=self.data, compression="gzip")
+
+    @classmethod
+    def load_h5(cls, path=None):
+        if cls is Object:
+            return NotImplementedError
+
+        attr = cls.attr.__class__.load_h5(path, cls.attr.__class__.__name__)
+        with h5py.File(path, 'r') as fin:
+            data = np.array(fin['_data'])
+            return cls(data, attr)
+
+    @abstractmethod
+    def map(self, _):
+        raise NotImplementedError
+
+    def __str__(self):
+        out_str = f'{type(self)} object at {hex(id(self))} with attributes as:\n'
+        out_str += self.attr.__str__()
+        return out_str

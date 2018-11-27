@@ -11,23 +11,26 @@
 '''
 
 import numpy as np
-from functools import reduce
 from abc import abstractmethod
 
 from srf2.core.abstracts import Attribute
 
-__all__ = ('Detector_1d_attr', 'Detector_2d_attr', 'Projection_flat_attr', 'Projection_curve_attr',)
+__all__ = ('Detector1DAttr', 'Detector2DAttr', 'ProjectionFlatAttr', 'ProjectionCurveAttr',)
 
 
-class Detector_attr(Attribute):
+class DetectorAttr(Attribute):
+    _shape: tuple
+    _center: tuple
+    _size: tuple
+
     def __init__(self, shape, center, size):
+        if not (len(shape) == len(center) == len(size)):
+            raise ValueError(self.__dict__, ' should have same lengths')
+        if len(shape) < 1 or len(shape) > 2:
+            raise NotImplemented
         self._shape = shape
         self._center = center
         self._size = size
-        if not (len(self._shape) == len(self._center) == len(self._size)):
-            raise ValueError(self.__dict__, ' should have same lengths')
-        if len(self._shape) < 1 or len(self._shape) > 2:
-            raise NotImplemented
 
     @property
     def shape(self):
@@ -46,12 +49,20 @@ class Detector_attr(Attribute):
         return tuple([x / y for (x, y) in zip(self.size, self.shape)])
 
     @property
+    def n_u(self):
+        return self.shape[0]
+
+    @property
+    def n_v(self):
+        return self.shape[1] if len(self.shape) > 1 else 1
+
+    @property
     def ndim(self):
         return len(self.shape)
 
     @property
     def num_all(self):
-        return reduce(lambda x, y: x * y, self.shape)
+        return self.n_u * self.n_v
 
     @abstractmethod
     def meshgrid(self):
@@ -61,31 +72,30 @@ class Detector_attr(Attribute):
     def unit_centers(self):
         pass
 
-    @abstractmethod
     def map(self, f):
-        pass
+        return self.__class__(*f(self.shape, self.center, self.size))
 
-    def __getitem__(self, ind):
+    def __getitem__(self, item):
         shape = list(self.shape)
         center = list(self.center)
         size = list(self.size)
 
         for k in range(self.ndim):
-            if not isinstance(ind[k], (slice, int)):
-                raise TypeError('list indices must be integers or slices, not ', type(ind[k]))
+            if not isinstance(item[k], (slice, int)):
+                raise TypeError('list indices must be integers or slices, not ', type(item[k]))
 
-            if ind[k] is int:
-                if not -self.ndim < ind[k] < self.ndim:
+            if item[k] is int:
+                if not -self.ndim < item[k] < self.ndim:
                     raise IndexError(self.__class__.__name__, ' index out of range')
                 shape[k] = 1
-                center[k] = center[k][ind[k]]
-                size[k] = size[k][ind[k]]
+                center[k] = center[k][item[k]]
+                size[k] = size[k][item[k]]
             else:
-                if ind[k].step is None:
+                if item[k].step is None:
                     step = 1
                 else:
-                    step = ind[k].step
-                rang = range(shape[k])[ind[k]]
+                    step = item[k].step
+                rang = range(shape[k])[item[k]]
                 unit_size = size[k] / shape[k]
                 center[k] = (rang[0] + rang[-1] + 1) / 2 * unit_size + center[k] - size[k] / 2
                 shape[k] = len(rang)
@@ -93,9 +103,9 @@ class Detector_attr(Attribute):
 
         count_nonzero = shape.count(1)
         if count_nonzero == 1:
-            return Detector_1d_attr(shape, center, size)
+            return Detector1DAttr(shape, center, size)
         elif count_nonzero == 2:
-            return Detector_2d_attr(shape, center, size)
+            return Detector2DAttr(shape, center, size)
         else:
             raise NotImplementedError
 
@@ -107,26 +117,12 @@ class Detector_attr(Attribute):
             result[k] = (pos[k] - self.center[k] + self.size[k] / 2) / self.unit_size[k] - 0.5
         return tuple(result)
 
-    # def transpose(self, perm=None):
-    #     if perm is None:
-    #         perm = np.arange(self.ndim)[::-1]
-    #     if set(perm).issubset({'a', 'b'}):
-    #         perm = [self.dims.index(e) for e in perm]
-    #     shape = [self.shape[i] for i in perm]
-    #     center = [self.center[i] for i in perm]
-    #     size = [self.size[i] for i in perm]
-    #     dims = [self.dims[i] for i in perm]
-    #     return self.__class__(shape, center, size, dims)
 
-
-class Detector_1d_attr(Detector_attr):
+class Detector1DAttr(DetectorAttr):
     def __init__(self, shape=(1,), center=(0,), size=(1,)):
         super().__init__(shape, center, size)
         if len(shape) != 1:
             raise ValueError(self.__class__, ' is only consistent with 2D case')
-
-    def map(self, f):
-        return Detector_1d_attr(*f(self.shape, self.center, self.size))
 
     def meshgrid(self):
         return np.arange(self.shape[0])
@@ -135,35 +131,41 @@ class Detector_1d_attr(Detector_attr):
         return self.meshgrid() * self.unit_size[0] + self.center[0] - self.size[0] / 2 + self.unit_size[0] / 2
 
 
-class Detector_2d_attr(Detector_attr):
+class Detector2DAttr(DetectorAttr):
     def __init__(self, shape=(1, 1), center=(0, 0), size=(1, 1)):
         super().__init__(shape, center, size)
         if len(shape) != 2:
             raise ValueError(self.__class__, ' is only consistent with 2D case')
 
     def map(self, f):
-        return Detector_2d_attr(*f(self.shape, self.center, self.size))
+        return Detector2DAttr(*f(self.shape, self.center, self.size))
 
-    def meshgrid(self, slice=None):
+    def meshgrid(self):
         x = np.arange(self.shape[0])
         y = np.arange(self.shape[1])
         y1, x1 = np.meshgrid(y, x)
         return x1, y1
 
     def unit_centers(self):
-        x1, y1 = self.meshgrid(slice)
+        x1, y1 = self.meshgrid()
         pos_x = x1 * self.unit_size[0] + self.center[0] - self.size[0] / 2 + self.unit_size[0] / 2
         pos_y = y1 * self.unit_size[1] + self.center[1] - self.size[1] / 2 + self.unit_size[1] / 2
         return pos_x, pos_y
 
 
-class Projection_attr(Attribute):
-    def __init__(self, SID, SAD, angle, detector_attr: Detector_attr, pos_z=0):
-        self._SID = SID
-        self._SAD = SAD
-        self._angle = angle
-        self.detector_attr = detector_attr
-        self._pos_z = pos_z
+class ProjectionAttr(Attribute):
+    _SID: np.float32
+    _SAD: np.float32
+    _angle: np.float32
+    _detector_attr: DetectorAttr
+    _pos_z: np.float32
+
+    def __init__(self, SID, SAD, angle, detector_attr: DetectorAttr, pos_z=0):
+        self._SID = np.float32(SID)
+        self._SAD = np.float32(SAD)
+        self._angle = np.float32(angle)
+        self._detector_attr = detector_attr
+        self._pos_z = np.float32(pos_z)
 
     @property
     def SID(self):
@@ -178,13 +180,17 @@ class Projection_attr(Attribute):
         return self._angle
 
     @property
+    def detector_attr(self):
+        return self._detector_attr
+
+    @property
     def pos_z(self):
         return self._pos_z
 
     @property
     def source_pos(self):
         x, y = -self.SID * np.cos(self.angle), -self.SID * np.sin(self.angle)
-        if self.detector_attr is Detector_1d_attr:
+        if self.detector_attr is Detector1DAttr:
             return x, y
         else:
             return x, y, self.pos_z
@@ -197,14 +203,13 @@ class Projection_attr(Attribute):
     def locate(self, pos):
         pass
 
-    @abstractmethod
     def map(self, f):
-        pass
+        return self.__class__(*f(self.SID, self.SAD, self.detector_attr, self.detector_attr, self.pos_z))
 
 
-class Projection_flat_attr(Projection_attr):
+class ProjectionFlatAttr(ProjectionAttr):
     def unit_centers(self):
-        if self.detector_attr is Detector_1d_attr:
+        if self.detector_attr is Detector1DAttr:
             a = self.detector_attr.unit_centers()
             x = np.cos(self.angle) * (self.SID - self.SAD) - np.sin(self.angle) * a
             y = np.sin(self.angle) * a
@@ -217,7 +222,7 @@ class Projection_flat_attr(Projection_attr):
             return x, y, z
 
     def locate(self, pos):
-        if self.detector_attr is Detector_1d_attr:
+        if self.detector_attr is Detector1DAttr:
             if len(pos) > 2 and pos[2] != self.pos_z:
                 raise ValueError
             x = +pos[0] * np.cos(-self.angle) + pos[1] * np.sin(-self.angle)
@@ -232,13 +237,10 @@ class Projection_flat_attr(Projection_attr):
             b = self.SAD / (x + self.SID) * z + self.pos_z
             return self.detector_attr.locate((a, b))
 
-    def map(self, f):
-        pass
 
-
-class Projection_curve_attr(Projection_attr):
+class ProjectionCurveAttr(ProjectionAttr):
     def unit_centers(self):
-        if self.detector_attr is Detector_1d_attr:
+        if self.detector_attr is Detector1DAttr:
             a = self.detector_attr.unit_centers()
             xd, yd = np.cos(a) * self.SID - self.SAD, np.sin(a) * self.SID
             x = +np.cos(self.angle) * xd - np.sin(self.angle) * yd
@@ -253,7 +255,7 @@ class Projection_curve_attr(Projection_attr):
             return x, y, z
 
     def locate(self, pos):
-        if self.detector_attr is Detector_1d_attr:
+        if self.detector_attr is Detector1DAttr:
             if len(pos) > 2 and pos[2] != self.pos_z:
                 raise ValueError
             x = +pos[0] * np.cos(-self.angle) + pos[1] * np.sin(-self.angle)
@@ -267,6 +269,3 @@ class Projection_curve_attr(Projection_attr):
             a = np.arctan2(y, x + self.SAD)
             b = self.SAD / (x + self.SID) * z + self.pos_z
             return self.detector_attr.locate((a, b))
-
-    def map(self, f):
-        pass
