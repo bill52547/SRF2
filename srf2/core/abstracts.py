@@ -10,8 +10,6 @@
 @desc: new version of Scalable Reconstruction Framework for Medical Imaging
 '''
 
-from abc import abstractmethod
-
 import h5py
 
 __all__ = ('Attribute',)
@@ -56,7 +54,6 @@ class Attribute(object):
         :return: None
         '''
 
-
         if path is None:
             path = 'tmp' + self.__class__.__name__ + '.h5'
 
@@ -82,6 +79,13 @@ class Attribute(object):
                 dict_attrs[key] = _decode_utf8(group.attrs[key])
             return cls(**dict_attrs)
 
-    @abstractmethod
     def map(self, _):
         raise NotImplementedError('map method is valid for ', self.__class__, ' object.')
+
+    def __str__(self):
+        out_str = f'{type(self)} object at {hex(id(self))}\n'
+        for key in self.__dict__.keys():
+            out_str += f'{key}: {type(self.__dict__[key])} = {self.__dict__[key]}\n'
+        return out_str
+
+    __repr__ = __str__
