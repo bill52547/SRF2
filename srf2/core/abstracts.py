@@ -12,6 +12,7 @@
 
 from abc import abstractmethod
 import numpy as np
+from numpy.core import isscalar
 import h5py
 
 __all__ = ('Attribute', 'Object')
@@ -94,6 +95,9 @@ class Attribute(object):
 
 
 class Object(object):
+    _data: np.ndarray
+    _attr: Attribute
+
     @property
     def data(self):
         return self._data
@@ -127,7 +131,7 @@ class Object(object):
         if cls is Object:
             return NotImplementedError
 
-        attr = cls.attr.__class__.load_h5(path, cls.attr.__class__.__name__)
+        attr = cls._attr.__class__.load_h5(path)
         with h5py.File(path, 'r') as fin:
             data = np.array(fin['_data'])
             return cls(data, attr)
@@ -140,3 +144,71 @@ class Object(object):
         out_str = f'{type(self)} object at {hex(id(self))} with attributes as:\n'
         out_str += self.attr.__str__()
         return out_str
+
+    def __neg__(self):
+        def _neg(data):
+            return -data
+
+        return self.map(_neg)
+
+    def __pos__(self):
+        def _pos(data):
+            return data
+
+        return self.map(_pos)
+
+    def __add__(self, other):
+        def _add(o):
+            def kernel(data):
+                if isscalar(o) or isinstance(o, np.ndarray):
+                    return data + o
+                elif isinstance(o, self.__class__):
+                    return data + o.data
+                else:
+                    raise NotImplementedError
+
+            return kernel
+
+        return self.map(_add(other))
+
+    def __sub__(self, other):
+        def _sub(o):
+            def kernel(data):
+                if isscalar(o) or isinstance(o, np.ndarray):
+                    return data - o
+                elif isinstance(o, self.__class__):
+                    return data - o.data
+                else:
+                    raise NotImplementedError
+
+            return kernel
+
+        return self.map(_sub(other))
+
+    def __mul__(self, other):
+        def _mul(o):
+            def kernel(data):
+                if isscalar(o) or isinstance(o, np.ndarray):
+                    return data * o
+                elif isinstance(o, self.__class__):
+                    return data * o.data
+                else:
+                    raise NotImplementedError
+
+            return kernel
+
+        return self.map(_mul(other))
+
+    def __div__(self, other):
+        def _div(o):
+            def kernel(data):
+                if isscalar(o) or isinstance(o, np.ndarray):
+                    return data / o
+                elif isinstance(o, self.__class__):
+                    return data / o.data
+                else:
+                    raise NotImplementedError
+
+            return kernel
+
+        return self.map(_div(other))

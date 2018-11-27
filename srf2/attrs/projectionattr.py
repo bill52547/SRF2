@@ -15,7 +15,7 @@ from abc import abstractmethod
 
 from srf2.core.abstracts import Attribute
 
-__all__ = ('Detector1DAttr', 'Detector2DAttr', 'ProjectionFlatAttr', 'ProjectionCurveAttr',)
+__all__ = ('Detector1DAttr', 'Detector2DAttr', 'ProjectionAttr', 'ProjectionFlatAttr', 'ProjectionCurveAttr',)
 
 
 class DetectorAttr(Attribute):
