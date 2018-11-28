@@ -49,48 +49,44 @@ class ImageAttr(Attribute):
         return len(self._dims)
 
     @property
-    def T(self):
-        return self.transpose()
-
-    @property
     def n_x(self):
         if 'x' in self.dims:
-            return self.num('x')
+            return self.shape[self.dims.index('x')]
         else:
             return 1
 
     @property
     def n_y(self):
         if 'y' in self.dims:
-            return self.num('y')
+            return self.shape[self.dims.index('y')]
         else:
             return 1
 
     @property
     def n_z(self):
         if 'z' in self.dims:
-            return self.num('z')
+            return self.shape[self.dims.index('z')]
         else:
             return 1
 
     @property
     def n_t(self):
         if 't' in self.dims:
-            return self.num('t')
+            return self.shape[self.dims.index('t')]
         else:
             return 1
 
-    def num(self, dim=None):
-        if dim is str:
-            dim = [s for s in dim]
-        if set(dim).issubset(self.dims):
-            dim = [self.dims.index(e) for e in dim]
-
-        nums = self.shape[dim]
-        return reduce(lambda x, y: x * y, nums)
+    def num(self, dims = None):
+        if dims is None:
+            dims = self.dims
+        if dims is str:
+            dims = [s for s in dims]
+        if set(dims).issubset(self.dims):
+            dims = [self.dims.index(e) for e in dims]
+        return reduce(lambda x, y: x * y, [self.shape[s] for s in dims])
 
     def map(self, f):
-        return self.__class__(*f(self.shape, self.center, self.size, self.size))
+        return self.__class__(*f(self.shape, self.center, self.size, self.dims))
 
     @abstractmethod
     def meshgrid(self):
@@ -100,35 +96,46 @@ class ImageAttr(Attribute):
     def unit_centers(self):
         pass
 
-    def __getitem__(self, ind):
+    def __getitem__(self, item):
         shape = list(self.shape)
         center = list(self.center)
         size = list(self.size)
         dims = self.dims
 
         for k in range(self.ndim):
-            if not isinstance(ind[k], (slice, int)):
-                raise TypeError('list indices must be integers or slices, not ', type(ind[k]))
+            if isinstance(item, (slice, int)):
+                item = (item,)
+            if not isinstance(item[k], (slice, int)):
+                raise TypeError('list indices must be integers or slices, not ', type(item[k]))
 
-            if ind[k] is int:
-                if not -self.ndim < ind[k] < self.ndim:
+            if item[k] is int:
+                if not -self.ndim < item[k] < self.ndim:
                     raise IndexError(self.__class__.__name__, ' index out of range')
                 shape[k] = 1
-                center[k] = center[k][ind[k]]
-                size[k] = size[k][ind[k]]
+                center[k] = center[k][item[k]]
+                size[k] = size[k][item[k]]
             else:
-                if ind[k].step is None:
+                if item[k].step is None:
                     step = 1
                 else:
-                    step = ind[k].step
-                rang = range(shape[k])[ind[k]]
+                    step = item[k].step
+                rang = range(shape[k])[item[k]]
                 unit_size = size[k] / shape[k]
                 center[k] = (rang[0] + rang[-1] + 1) / 2 * unit_size + center[k] - size[k] / 2
                 shape[k] = len(rang)
                 size[k] = shape[k] * unit_size * step
+        return self.__class__(shape, center, size, dims)
 
-        count_nonzero = shape.count(1)
-        if count_nonzero == 1:
+    def squeeze(self):
+        index_nonzero = [i for i in range(self.ndim) if self.shape[i] > 1]
+        shape = [self.shape[e] for e in index_nonzero]
+        center = [self.center[e] for e in index_nonzero]
+        size = [self.size[e] for e in index_nonzero]
+        dims = [self.dims[e] for e in index_nonzero]
+        count_nonzero = len(index_nonzero)
+        if count_nonzero == 0:
+            return Image0DAttr(shape, center, size, dims)
+        elif count_nonzero == 1:
             return Image1DAttr(shape, center, size, dims)
         elif count_nonzero == 2:
             return Image2DAttr(shape, center, size, dims)
@@ -137,15 +144,17 @@ class ImageAttr(Attribute):
         else:
             raise NotImplementedError
 
-    def locate(self, pos=None):
+    def locate(self, pos = None):
         if pos is None:
             return ValueError('No valid input.')
+        if np.isscalar(pos):
+            pos = (pos,)
         result = [0] * self.ndim
         for k in range(self.ndim):
             result[k] = (pos[k] - self.center[k] + self.size[k] / 2) / self.unit_size[k] - 0.5
         return tuple(result)
 
-    def transpose(self, perm=None):
+    def transpose(self, perm = None):
         if perm is None:
             perm = np.arange(self.ndim)[::-1]
         if set(perm).issubset({'x', 'y', 'z'}):
@@ -156,12 +165,34 @@ class ImageAttr(Attribute):
         dims = [self.dims[i] for i in perm]
         return self.__class__(shape, center, size, dims)
 
+    @property
+    def T(self):
+        return self.transpose()
+
 
 class Image0DAttr(ImageAttr):
-    def __init__(self, shape = None, center = None, size = None, dims = None):
-        super().__init__(shape, center, size, dims)
+    def __init__(self, _shape = None, _center = None, _size = None, _dims = None):
+        if _shape is None:
+            _shape = tuple([])
+        super().__init__(_shape, _center, _size, _dims)
         if len(self.shape) != 0:
             raise ValueError(self.__class__, ' is only consistent with 0D case')
+
+    def meshgrid(self):
+        raise ValueError
+
+    def unit_centers(self):
+        raise ValueError
+
+
+class Image1DAttr(ImageAttr):
+    def __init__(self, _shape = None, _center = None, _size = None, _dims = None):
+        if _shape is None:
+            _shape = (1,)
+
+        super().__init__(_shape, _center, _size, _dims)
+        if len(self.shape) != 1:
+            raise ValueError(self.__class__, ' is only consistent with 1D case')
 
     def meshgrid(self):
         return np.arange(self.shape[0])
@@ -171,26 +202,15 @@ class Image0DAttr(ImageAttr):
                self.unit_size[0] / 2
 
 
-class Image1DAttr(ImageAttr):
-    def __init__(self, shape=(1,), center=(0,), size=(1,), dims=('x',)):
-        super().__init__(shape, center, size, dims)
-        if len(self.shape) != 1:
-            raise ValueError(self.__class__, ' is only consistent with 1D case')
-
-    def meshgrid(self):
-        return np.arange(self.shape[0])
-
-    def unit_centers(self):
-        return self.meshgrid() * self.unit_size[0] + self.center[0] - self.size[0] / 2 + self.unit_size[0] / 2
-
-
 class Image2DAttr(ImageAttr):
-    def __init__(self, shape=(1, 1), center=(0, 0), size=(1, 1), dims=('x', 'y')):
-        super().__init__(shape, center, size, dims)
+    def __init__(self, _shape = None, _center = None, _size = None, _dims = None):
+        if _shape is None:
+            _shape = (1, 1)
+        super().__init__(_shape, _center, _size, _dims)
         if len(self.shape) != 2:
             raise ValueError(self.__class__, ' is only consistent with 2D case')
 
-    def meshgrid(self, slice=None):
+    def meshgrid(self, slice = None):
         x = np.arange(self.shape[0])
         y = np.arange(self.shape[1])
         y1, x1 = np.meshgrid(y, x)
@@ -204,9 +224,10 @@ class Image2DAttr(ImageAttr):
 
 
 class Image3DAttr(ImageAttr):
-    def __init__(self, shape=(1, 1, 1), center=(0, 0, 0), size=(1, 1, 1),
-                 dims=('x', 'y', 'z')):
-        super().__init__(shape, center, size, dims)
+    def __init__(self, _shape = None, _center = None, _size = None, _dims = None):
+        if _shape is None:
+            _shape = (1, 1, 1)
+        super().__init__(_shape, _center, _size, _dims)
         if len(self.shape) != 3:
             raise ValueError(self.__class__, ' is only consistent with 3D case')
 
@@ -226,6 +247,13 @@ class Image3DAttr(ImageAttr):
 
 
 class Image4DAttr(ImageAttr):
+    def __init__(self, _shape = None, _center = None, _size = None, _dims = None):
+        if _shape is None:
+            _shape = (1, 1, 1, 1)
+        super().__init__(_shape, _center, _size, _dims)
+        if len(self.shape) != 4:
+            raise ValueError(self.__class__, ' is only consistent with 4D case')
+
     def meshgrid(self):
         raise NotImplementedError
 
