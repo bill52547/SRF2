@@ -12,8 +12,9 @@
 
 __all__ = ()
 #
-from .imageattr import *
-from .projectionattr import *
+from .image_attr import *
+from .projection_attr import *
+
 #
-__all__ += imageattr.__all__
-__all__ += projectionattr.__all__
+__all__ += image_attr.__all__
+__all__ += projection_attr.__all__

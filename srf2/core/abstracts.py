@@ -11,25 +11,26 @@
 '''
 
 from abc import abstractmethod
+
+import h5py
 import numpy as np
 from numpy.core import isscalar
-import h5py
 
 __all__ = ('Attribute', 'Object')
 
 
 def _encode_utf8(val):
-    if val is tuple:
-        return tuple([v.encode('utf-8') if v is str else v for v in val])
+    if isinstance(val, tuple):
+        return tuple([v.encode('utf-8') if isinstance(v, str) else v for v in val])
     else:
-        return val.encode('utf-8') if val is str else val
+        return val.encode('utf-8') if isinstance(val, str) else val
 
 
 def _decode_utf8(val):
-    if val is tuple:
-        return tuple([v.decode('utf-8') if v is str else v for v in val])
+    if isinstance(val, (list, np.ndarray)):
+        return tuple([v.decode('utf-8') if isinstance(v, bytes) else v for v in val])
     else:
-        return val.decode('utf-8') if val is str else val
+        return val.decode('utf-8') if isinstance(val, bytes) else val
 
 
 class Attribute(object):
@@ -46,9 +47,13 @@ class Attribute(object):
         '''
         if self.__class__ != other.__class__:
             return False
-        return self.__dict__ == other.__dict__
+        for key, value in self.__dict__.items():
+            if value != other.__getattribute__(key):
+                return False
+        else:
+            return True
 
-    def save_h5(self, path=None, mode='w'):
+    def save_h5(self, path = None, mode = 'w'):
         '''**save to hdf5 file**
         save a attribute object to hdf5 file, in term of hdf5 group/attrs. It is saved in a group
         with name of this class.
@@ -67,27 +72,29 @@ class Attribute(object):
         with h5py.File(path, mode) as fout:
             group = fout.create_group(self.__class__.__name__)
             for key, value in self.__dict__.items():
-                group.attrs.create(key, data=_encode_utf8(value))
+                group.attrs.create(key, data = _encode_utf8(value))
 
     @classmethod
-    def load_h5(cls, path=None):
+    def load_h5(cls, path = None):
         if cls is Attribute:
             return NotImplementedError
 
-        dict_attrs = cls().__dict__
         if path is None:
             path = 'tmp' + cls.__name__ + '.h5'
         with h5py.File(path, 'r') as fin:
             group = fin[cls.__name__]
-            for key in dict_attrs.keys():
-                dict_attrs[key] = _decode_utf8(group.attrs[key])
+            dict_attrs = {}
+            for key, value in group.attrs.items():
+                dict_attrs[key] = _decode_utf8(value)
             return cls(**dict_attrs)
 
-    def __str__(self):
+    def __repr__(self):
         out_str = f'{type(self)} object at {hex(id(self))}\n'
         for key in self.__dict__.keys():
             out_str += f'{key}: {type(self.__dict__[key])} = {self.__dict__[key]}\n'
         return out_str
+
+    __str__ = __repr__
 
     @abstractmethod
     def map(self, _):
@@ -106,7 +113,14 @@ class Object(object):
     def attr(self):
         return self._attr
 
-    def save_h5(self, path=None, mode='w'):
+    def __eq__(self, other):
+        if self.__class__ != other.__class__:
+            return False
+        if self.attr != other.attr:
+            return False
+        return np.array_equal(self.data, other.data)
+
+    def save_h5(self, path = None, mode = 'w'):
         '''**save to hdf5 file**
         save a attribute object to hdf5 file, in term of hdf5 group/attrs. It is saved in a group
         with name of this class.
@@ -124,46 +138,46 @@ class Object(object):
 
         self.attr.save_h5(path, mode)
         with h5py.File(path, 'r+') as fout:
-            fout.create_dataset('_data', data=self.data, compression="gzip")
+            fout.create_dataset('_data', data = self.data, compression = "gzip")
 
     @classmethod
-    def load_h5(cls, path=None):
+    def load_h5(cls, path = None):
         if cls is Object:
             return NotImplementedError
 
-        attr = cls._attr.__class__.load_h5(path)
+        _attr = cls._attr.__class__.load_h5(path)
         with h5py.File(path, 'r') as fin:
-            data = np.array(fin['_data'])
-            return cls(data, attr)
+            _data = np.array(fin['_data'])
+            return cls(_data, _attr)
 
     @abstractmethod
     def map(self, _):
         raise NotImplementedError
 
-    def __str__(self):
+    def __repr__(self):
         out_str = f'{type(self)} object at {hex(id(self))} with attributes as:\n'
-        out_str += self.attr.__str__()
+        out_str += self.attr.__repr__()
         return out_str
 
     def __neg__(self):
-        def _neg(data):
-            return -data
+        def _neg(data, attr):
+            return -data, attr
 
         return self.map(_neg)
 
     def __pos__(self):
-        def _pos(data):
-            return data
+        def _pos(data, attr):
+            return data, attr
 
         return self.map(_pos)
 
     def __add__(self, other):
         def _add(o):
-            def kernel(data):
+            def kernel(data, attr):
                 if isscalar(o) or isinstance(o, np.ndarray):
-                    return data + o
+                    return data + o, attr
                 elif isinstance(o, self.__class__):
-                    return data + o.data
+                    return data + o.data, attr
                 else:
                     raise NotImplementedError
 
@@ -171,13 +185,15 @@ class Object(object):
 
         return self.map(_add(other))
 
+    __radd__ = __add__
+
     def __sub__(self, other):
         def _sub(o):
-            def kernel(data):
+            def kernel(data, attr):
                 if isscalar(o) or isinstance(o, np.ndarray):
-                    return data - o
+                    return data - o, attr
                 elif isinstance(o, self.__class__):
-                    return data - o.data
+                    return data - o.data, attr
                 else:
                     raise NotImplementedError
 
@@ -187,11 +203,11 @@ class Object(object):
 
     def __mul__(self, other):
         def _mul(o):
-            def kernel(data):
+            def kernel(data, attr):
                 if isscalar(o) or isinstance(o, np.ndarray):
-                    return data * o
+                    return data * o, attr
                 elif isinstance(o, self.__class__):
-                    return data * o.data
+                    return data * o.data, attr
                 else:
                     raise NotImplementedError
 
@@ -199,16 +215,18 @@ class Object(object):
 
         return self.map(_mul(other))
 
-    def __div__(self, other):
-        def _div(o):
-            def kernel(data):
+    __rmul__ = __mul__
+
+    def __truediv__(self, other):
+        def _truediv(o):
+            def kernel(data, attr):
                 if isscalar(o) or isinstance(o, np.ndarray):
-                    return data / o
+                    return data / o, attr
                 elif isinstance(o, self.__class__):
-                    return data / o.data
+                    return data / o.data, attr
                 else:
                     raise NotImplementedError
 
             return kernel
 
-        return self.map(_div(other))
+        return self.map(_truediv(other))

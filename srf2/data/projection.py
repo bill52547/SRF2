@@ -1,8 +1,9 @@
-import h5py
-import numpy as np
 from collections import List
+
+import numpy as np
+
+from ..attr.projectionattr import *
 from ..core.abstracts import Object
-from ..attrs.projectionattr import *
 
 __all__ = ('Projection', 'ProjectionSeries', 'ProjectionFlatAttr', 'ProjectionCurveAttr',)
 
@@ -11,7 +12,7 @@ class Projection(Object):
     _data: np.ndarray
     _attr: ProjectionAttr
 
-    def __init__(self, data=None, attr: ProjectionAttr = None):
+    def __init__(self, data = None, attr: ProjectionAttr = None):
         super().__init__(data, attr)
 
     @property
@@ -87,5 +88,3 @@ class ProjectionCurveSeries(ProjectionSeries):
         super().__init__(data, attr)
         if attr[0] is not ProjectionCurveAttr:
             raise ValueError
-
-

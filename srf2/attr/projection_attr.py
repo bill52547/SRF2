@@ -10,12 +10,15 @@
 @desc: new version of Scalable Reconstruction Framework for Medical Imaging
 '''
 
-import numpy as np
 from abc import abstractmethod
+
+import numpy as np
 
 from srf2.core.abstracts import Attribute
 
-__all__ = ('Detector1DAttr', 'Detector2DAttr', 'ProjectionAttr', 'ProjectionFlatAttr', 'ProjectionCurveAttr',)
+__all__ = (
+    'Detector1DAttr', 'Detector2DAttr', 'ProjectionAttr', 'ProjectionFlatAttr',
+    'ProjectionCurveAttr',)
 
 
 class DetectorAttr(Attribute):
@@ -160,7 +163,7 @@ class ProjectionAttr(Attribute):
     _detector_attr: DetectorAttr
     _pos_z: np.float32
 
-    def __init__(self, SID, SAD, angle, detector_attr: DetectorAttr, pos_z=0):
+    def __init__(self, SID, SAD, angle, detector_attr: DetectorAttr, pos_z = 0):
         self._SID = np.float32(SID)
         self._SAD = np.float32(SAD)
         self._angle = np.float32(angle)
@@ -204,7 +207,8 @@ class ProjectionAttr(Attribute):
         pass
 
     def map(self, f):
-        return self.__class__(*f(self.SID, self.SAD, self.detector_attr, self.detector_attr, self.pos_z))
+        return self.__class__(
+            *f(self.SID, self.SAD, self.detector_attr, self.detector_attr, self.pos_z))
 
 
 class ProjectionFlatAttr(ProjectionAttr):

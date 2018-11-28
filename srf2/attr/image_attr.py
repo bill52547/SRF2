@@ -1,6 +1,7 @@
-import numpy as np
-from functools import reduce
 from abc import abstractmethod
+from functools import reduce
+
+import numpy as np
 
 from srf2.core.abstracts import Attribute
 
@@ -13,11 +14,11 @@ class ImageAttr(Attribute):
     _size: tuple
     _dims: tuple
 
-    def __init__(self, shape=None, center=None, size=None, dims=None):
-        self._shape = tuple(shape) if shape is not None else tuple([])
-        self._center = tuple(center) if center is not None else tuple([])
-        self._size = tuple(size) if size is not None else tuple([])
-        self._dims = tuple(dims) if dims is not None else tuple([])
+    def __init__(self, _shape = None, _center = None, _size = None, _dims = None):
+        self._shape = tuple(_shape) if _shape is not None else tuple([])
+        self._center = tuple(_center) if _center is not None else tuple([0 for _ in self._shape])
+        self._size = tuple(_size) if _size is not None else tuple([k for k in self._shape])
+        self._dims = tuple(_dims) if _dims is not None else ('x', 'y', 'z', 't')[:len(self._shape)]
         if not (len(self._shape) == len(self._center) == len(self._size) == len(self._dims)):
             raise ValueError(self.__dict__, ' should have same lengths')
         if len(self._shape) < 0 or len(self._shape) > 4:
@@ -157,7 +158,7 @@ class ImageAttr(Attribute):
 
 
 class Image0DAttr(ImageAttr):
-    def __init__(self, shape=None, center=None, size=None, dims=None):
+    def __init__(self, shape = None, center = None, size = None, dims = None):
         super().__init__(shape, center, size, dims)
         if len(self.shape) != 0:
             raise ValueError(self.__class__, ' is only consistent with 0D case')
@@ -166,7 +167,8 @@ class Image0DAttr(ImageAttr):
         return np.arange(self.shape[0])
 
     def unit_centers(self):
-        return self.meshgrid() * self.unit_size[0] + self.center[0] - self.size[0] / 2 + self.unit_size[0] / 2
+        return self.meshgrid() * self.unit_size[0] + self.center[0] - self.size[0] / 2 + \
+               self.unit_size[0] / 2
 
 
 class Image1DAttr(ImageAttr):
