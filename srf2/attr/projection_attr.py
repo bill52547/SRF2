@@ -16,8 +16,9 @@ import numpy as np
 
 from srf2.core.abstracts import Attribute
 
-__all__ = ('DetectorAttr', 'Detector1DAttr', 'Detector2DAttr', 'ProjectionAttr',
-           'ProjectionFlatAttr', 'ProjectionCurveAttr',)
+__all__ = ('DetectorAttr', 'Detector1DAttr', 'Detector2DAttr',
+           'ProjectionAttr', 'ProjectionFlatAttr', 'ProjectionCurveAttr',
+           'ProjectionSeriesAttr', 'ProjectionFlatSeriesAttr', 'ProjectionCurveSeriesAttr',)
 
 
 class DetectorAttr(Attribute):
@@ -353,5 +354,166 @@ class ProjectionCurveAttr(ProjectionAttr):
             u = np.arctan2(y, x + self.source_to_image)
             v = self.source_to_image / (x + self.source_to_detector) * z
             return self.detector_attr.locate((u, v))
+        else:
+            raise None
+
+
+class ProjectionSeriesAttr(Attribute):
+    def __init__(self, source_to_detector, source_to_image, angles, detector_attr: DetectorAttr):
+        if source_to_detector < source_to_image:
+            raise ValueError
+        self._source_to_detector = np.float32(source_to_detector)
+        self._source_to_image = np.float32(source_to_image)
+        self._angles = np.array(angles, dtype = np.float32)
+
+        if detector_attr.ndim == 0:
+            self._detector_attr = Detector0DAttr(*detector_attr.__dict__.values())
+        elif detector_attr.ndim == 1:
+            self._detector_attr = Detector1DAttr(*detector_attr.__dict__.values())
+        elif detector_attr.ndim == 2:
+            self._detector_attr = Detector2DAttr(*detector_attr.__dict__.values())
+        else:
+            raise NotImplementedError
+
+    @property
+    def source_to_detector(self):
+        return self._source_to_detector
+
+    @property
+    def source_to_image(self):
+        return self._source_to_image
+
+    @property
+    def angles(self):
+        return self._angles
+
+    @property
+    def detector_attr(self):
+        return self._detector_attr
+
+    def __len__(self):
+        return len(self.angles)
+
+    def __bool__(self):
+        return len(self) > 0
+
+    @property
+    def source_positions(self):
+        x, y = -self.source_to_image * np.cos(self.angles), \
+               -self.source_to_image * np.sin(self.angles)
+        if isinstance(self.detector_attr, Detector1DAttr):
+            return x, y
+        elif isinstance(self.detector_attr, Detector2DAttr):
+            return x, y, 0
+        else:
+            raise NotImplementedError
+
+    @abstractmethod
+    def detector_unit_centers(self):
+        pass
+
+    @abstractmethod
+    def locate(self, pos):
+        pass
+
+    def map(self, f):
+        return self.__class__(
+            *f(self.source_to_detector, self.source_to_image, self.angles, self.detector_attr)
+        )
+
+    def squeeze(self):
+        detector_attr = self.detector_attr.squeeze()
+        if len(self) == 1:
+            angle = self.angles[0]
+            return ProjectionAttr(self.source_to_detector, self.source_to_image, angle,
+                                  detector_attr)
+        elif len(self) > 1:
+            return self.__class__(self.source_to_detector, self.source_to_image, self.angles,
+                                  detector_attr)
+        else:
+            raise NotImplementedError
+
+    def __getitem__(self, item):
+        angles = self.angles[item]
+        return self.__class__(self.source_to_detector, self.source_to_image, angles,
+                              self.detector_attr)
+
+
+class ProjectionFlatSeriesAttr(ProjectionSeriesAttr):
+    def detector_unit_centers(self):
+        if isinstance(self.detector_attr, Detector1DAttr):
+            u = self.detector_attr.unit_centers()
+            x = np.cos(self.angles) * (self.source_to_detector - self.source_to_image) \
+                - np.sin(self.angles) * u
+            y = np.cos(self.angles) * u
+            return x, y
+        elif isinstance(self.detector_attr, Detector2DAttr):
+            u, v = self.detector_attr.unit_centers()
+            x = np.cos(self.angles) * (self.source_to_detector - self.source_to_image) \
+                - np.sin(self.angles) * u
+            y = np.cos(self.angles) * u
+            z = v
+            return x, y, z
+        else:
+            raise NotImplementedError
+
+    def locate(self, pos):
+        if isinstance(self.detector_attr, Detector1DAttr):
+            if len(pos) > 2:
+                raise ValueError
+            x = +pos[0] * np.cos(-self.angles) + pos[1] * np.sin(-self.angles)
+            y = -pos[0] * np.sin(-self.angles) + pos[1] * np.cos(-self.angles)
+            u = self.source_to_detector / (x + self.source_to_image) * y
+            return [self.detector_attr.locate(t) for t in u]
+        elif isinstance(self.detector_attr, Detector2DAttr):
+            if len(pos) > 3:
+                raise ValueError
+            x = +pos[0] * np.cos(-self.angles) + pos[1] * np.sin(-self.angles)
+            y = -pos[0] * np.sin(-self.angles) + pos[1] * np.cos(-self.angles)
+            z = pos[2]
+            u = self.source_to_detector / (x + self.source_to_image) * y
+            v = self.source_to_detector / (x + self.source_to_image) * z
+            return [self.detector_attr.locate((t, s)) for (t, s) in zip(u, v)]
+        else:
+            raise NotImplementedError
+
+
+class ProjectionCurveSeriesAttr(ProjectionSeriesAttr):
+    def detector_unit_centers(self):
+        if isinstance(self.detector_attr, Detector1DAttr):
+            u = self.detector_attr.unit_centers()
+            xd, yd = np.cos(u) * self.source_to_detector - self.source_to_image, \
+                     np.sin(u) * self.source_to_detector
+            x = +np.cos(self.angles) * xd - np.sin(self.angles) * yd
+            y = -np.sin(self.angles) * xd + np.cos(self.angles) * yd
+            return x, y
+        elif isinstance(self.detector_attr, Detector2DAttr):
+            u, v = self.detector_attr.unit_centers()
+            xd, yd = np.cos(u) * self.source_to_detector - self.source_to_image, \
+                     np.sin(u) * self.source_to_detector
+            x = +np.cos(self.angles) * xd - np.sin(self.angles) * yd
+            y = -np.sin(self.angles) * xd + np.cos(self.angles) * yd
+            z = v
+            return x, y, z
+        else:
+            raise NotImplementedError
+
+    def locate(self, pos):
+        if isinstance(self.detector_attr, Detector1DAttr):
+            if len(pos) > 2:
+                raise ValueError
+            x = +pos[0] * np.cos(-self.angles) + pos[1] * np.sin(-self.angles)
+            y = -pos[0] * np.sin(-self.angles) + pos[1] * np.cos(-self.angles)
+            u = np.arctan2(y, x + self.source_to_image)
+            return [self.detector_attr.locate(t) for t in u]
+        elif isinstance(self.detector_attr, Detector2DAttr):
+            if len(pos) > 3:
+                raise ValueError
+            x = +pos[0] * np.cos(-self.angles) + pos[1] * np.sin(-self.angles)
+            y = -pos[0] * np.sin(-self.angles) + pos[1] * np.cos(-self.angles)
+            z = pos[2]
+            u = np.arctan2(y, x + self.source_to_image)
+            v = self.source_to_image / (x + self.source_to_detector) * z
+            return [self.detector_attr.locate((t, s)) for (t, s) in zip(u, v)]
         else:
             raise None

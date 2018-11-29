@@ -1,5 +1,3 @@
-from collections import List
-
 import numpy as np
 
 from ..attr.projection_attr import *
@@ -69,37 +67,44 @@ class ProjectionFlat(Projection):
 
 
 class ProjectionSeries(Object):
-    def __init__(self, attr: List[ProjectionAttr], data: List[np.ndarray]):
-        self._attr = [a for a in attr]
-        self._data = [d for d in data]
+    def __init__(self, attr: ProjectionSeriesAttr, data: np.ndarray = None):
+        self._attr = attr
+        self._data = data
+        if data is not None:
+            if not isinstance(data, np.ndarray):
+                raise ValueError
+            self._data.astype(np.float32)
 
     def __len__(self):
         return len(self.data)
+
+    def __bool__(self):
+        return not self.data and len(self) > 0
 
     def map(self, f):
         return self.__class__(*f(self.attr, self.data))
 
     def __getitem__(self, item):
-        return self.__class__(self.attr[item], self.data[item])
+        if len(item) == 1:
+            item1, item2 = [None] * (self.data.ndim - 1), item
+        elif len(item) == self.data.ndim:
+            item1, item2 = item[:-1], item[-1]
+        else:
+            raise NotImplementedError
+        if self:
+            return self.__class__(self.attr[item2], self.data[[item1, item2]])
+        else:
+            return self.__class__(self.attr[item2], None)
 
     def squeeze(self):
-        if self.__len__() == 1:
-            if isinstance(self.attr[0], ProjectionCurveAttr):
-                return ProjectionCurve(self.attr[0], self.data[0])
-            elif isinstance(self.attr[0], ProjectionFlatAttr):
-                return ProjectionFlat(self.attr[0], self.data[0])
-            else:
-                raise NotImplementedError
-        attr = [a.squeeze() for a in self.attr]
-        data = [d.squeeze() for d in self.data]
-        return self.__class__(attr, data)
+        return self.__class__(self.attr.squeeze(), self.data.squeeze())
 
 
 class ProjectionFlatSeries(ProjectionSeries):
-    def __init__(self, attr: List[ProjectionFlatAttr], data: List[np.ndarray]):
+    def __init__(self, attr: ProjectionFlatSeriesAttr, data: np.ndarray = None):
         super().__init__(attr, data)
 
 
 class ProjectionCurveSeries(ProjectionSeries):
-    def __init__(self, attr: List[ProjectionCurveAttr], data: List[np.ndarray]):
+    def __init__(self, attr: ProjectionCurveSeriesAttr, data: np.ndarray = None):
         super().__init__(attr, data)
