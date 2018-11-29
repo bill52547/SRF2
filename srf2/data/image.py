@@ -1,35 +1,21 @@
 import numpy as np
 
-from ..attr.imageattr import *
+from ..attr.image_attr import *
 from ..core.abstracts import Object
 
-__all__ = ('Image', 'Image0D', 'Image1D', 'Image2D', 'Image3D', 'Image4D',)
+__all__ = ('Image', 'Image0D', 'Image1D', 'Image2D', 'Image3D',)
 
 
 class Image(Object):
-    _data: np.ndarray
-    _attr: ImageAttr
-
-    def __init__(self, data = None, attr: ImageAttr = None):
-        if attr is None and data is None:
-            attr = ImageAttr()
-            data = np.zeros(attr.shape, dtype = np.float32)
-
-        if data is None:
-            data = np.zeros(attr.shape, dtype = np.float32)
-
+    def __init__(self, attr: ImageAttr, data = None):
         if attr is None:
-            attr = ImageAttr(data.shape)
-
-        if not isinstance(data, np.ndarray):
-            raise TypeError('data must be a np.ndarray object')
-
-        if data.shape != attr.shape:
-            raise ValueError('data must has same shape with its attrs')
-
-        data.astype(np.float32)
+            raise ValueError
         self._data = data
         self._attr = attr
+        if not data:
+            if not isinstance(data, np.ndarray):
+                raise ValueError
+            self._data.astype(np.float32)
 
     @property
     def data(self):
@@ -39,15 +25,17 @@ class Image(Object):
     def attr(self):
         return self._attr
 
-    @property
-    def T(self):
-        return self.transpose()
+    def __bool__(self):
+        return not self.data
 
-    def normalize(self):
-        def _normalize(data):
-            return data / np.sum(data)
+    # def normalize(self):
+    #     def _normalize(data):
+    #         return data / np.sum(data)
+    #
+    #     return self.map(_normalize)
 
-        return self.map(_normalize)
+    def map(self, f):
+        return self.__class__(*f(self.attr, self.data))
 
     def transpose(self, perm = None):
         if perm is None:
@@ -55,58 +43,58 @@ class Image(Object):
         if set(perm).issubset({'x', 'y', 'z'}):
             perm = [self.attr.dims.index(e) for e in perm]
 
-        def _transpose(data, attr):
-            return data.transpose(perm), attr.transpose(attr)
+        def _transpose(attr, data):
+            return attr.transpose(attr), data.transpose(perm)
 
         return self.map(_transpose)
 
-    def map(self, f):
-        return self.__class__(*f(self.data, self.attr))
+    @property
+    def T(self):
+        return self.transpose()
 
     def __getitem__(self, item):
         attr = self.attr[item]
         data = self.data[item]
-        count_nonzero = attr.shape.count(1)
-        if count_nonzero == 1:
-            return Image1D(data, attr)
-        elif count_nonzero == 2:
-            return Image2D(data, attr)
-        elif count_nonzero == 3:
-            return Image3D(data, attr)
+        return self.__class__(attr, data)
+
+    def squeeze(self):
+        attr = self.attr.squeeze()
+        data = self.data.squeeze()
+        if isinstance(attr, Image0DAttr):
+            return Image0D(attr, data)
+        elif isinstance(attr, Image1DAttr):
+            return Image1D(attr, data)
+        elif isinstance(attr, Image2DAttr):
+            return Image2D(attr, data)
+        elif isinstance(attr, Image3DAttr):
+            return Image3D(attr, data)
         else:
             raise NotImplementedError
 
 
 class Image0D(Image):
-    def __init__(self, data = None, attr: Image1DAttr = None):
-        super().__init__(data, attr)
+    def __init__(self, attr: Image0DAttr = None, data = None):
+        super().__init__(attr, data)
         if self.attr.ndim != 0:
             raise ValueError(self.__class__.__name__, ' is only consistent with 0D case')
 
 
 class Image1D(Image):
-    def __init__(self, data = None, attr: Image1DAttr = None):
-        super().__init__(data, attr)
+    def __init__(self, attr: Image1DAttr = None, data = None):
+        super().__init__(attr, data)
         if self.attr.ndim != 1:
             raise ValueError(self.__class__.__name__, ' is only consistent with 1D case')
 
 
 class Image2D(Image):
-    def __init__(self, data = None, attr: Image2DAttr = None):
+    def __init__(self, attr: Image2DAttr = None, data = None):
+        super().__init__(attr, data)
         if self.attr.ndim != 2:
             raise ValueError(self.__class__.__name__, ' is only consistent with 2D case')
-        super().__init__(data, attr)
 
 
 class Image3D(Image):
-    def __init__(self, data = None, attr: Image3DAttr = None):
-        super().__init__(data, attr)
+    def __init__(self, attr: Image3DAttr = None, data = None):
+        super().__init__(attr, data)
         if self.attr.ndim != 3:
             raise ValueError(self.__class__.__name__, ' is only consistent with 3D case')
-
-
-class Image4D(Image):
-    def __init__(self, data = None, attr: Image4DAttr = None):
-        super().__init__(data, attr)
-        if self.attr.ndim != 4:
-            raise ValueError(self.__class__.__name__, ' is only consistent with 2D case')
