@@ -74,7 +74,7 @@ class Test_Object:
 
     def test_print(self):
         obj = Obj1()
-        print(obj)
+        # print(obj)
 
     def test_neg(self):
         o1 = Obj1(np.ones(5, ))

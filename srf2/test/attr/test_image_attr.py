@@ -123,7 +123,6 @@ class Test_Image1DAttr:
 
     def test_locate(self):
         attr = Image1DAttr((3,), (1,))
-        print(attr)
         assert attr.locate(1.5) == (1.5,)
 
     def test_meshgrid(self):

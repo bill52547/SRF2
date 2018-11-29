@@ -317,3 +317,4 @@ class ProjectionCurveAttr(ProjectionAttr):
             return self.detector_attr.locate((u, v))
         else:
             raise None
+

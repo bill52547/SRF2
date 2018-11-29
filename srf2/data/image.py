@@ -12,7 +12,7 @@ class Image(Object):
             raise ValueError
         self._data = data
         self._attr = attr
-        if not data:
+        if data is not None:
             if not isinstance(data, np.ndarray):
                 raise ValueError
             self._data.astype(np.float32)
@@ -25,14 +25,22 @@ class Image(Object):
     def attr(self):
         return self._attr
 
-    def __bool__(self):
-        return not self.data
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
 
-    # def normalize(self):
-    #     def _normalize(data):
-    #         return data / np.sum(data)
-    #
-    #     return self.map(_normalize)
+        if self.attr != other.attr:
+            return False
+
+        if not self and not other:
+            return True
+        elif not self or not other:
+            return False
+
+        return np.array_equal(self.data, other.data)
+
+    def __bool__(self):
+        return False if self.data is None else True
 
     def map(self, f):
         return self.__class__(*f(self.attr, self.data))
@@ -44,7 +52,10 @@ class Image(Object):
             perm = [self.attr.dims.index(e) for e in perm]
 
         def _transpose(attr, data):
-            return attr.transpose(attr), data.transpose(perm)
+            if data is None:
+                return attr.transpose(perm), None
+            else:
+                return attr.transpose(perm), data.transpose(perm)
 
         return self.map(_transpose)
 
