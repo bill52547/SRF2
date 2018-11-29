@@ -29,7 +29,7 @@ class DetectorAttr(Attribute):
 
         if not (len(self._shape) == len(self._center) == len(self._size) == len(self._dims)):
             raise ValueError(self.__dict__, ' should have same lengths')
-        if len(self._shape) < 1 or len(self._shape) > 2:
+        if len(self._shape) < 0 or len(self._shape) > 2:
             raise NotImplemented
 
     @property
@@ -140,6 +140,37 @@ class DetectorAttr(Attribute):
     def T(self):
         return self.transpose()
 
+    def squeeze(self):
+        index_nonzero = [i for i in range(self.ndim) if self.shape[i] > 1]
+        shape = [self.shape[e] for e in index_nonzero]
+        center = [self.center[e] for e in index_nonzero]
+        size = [self.size[e] for e in index_nonzero]
+        dims = [self.dims[e] for e in index_nonzero]
+        count_nonzero = len(index_nonzero)
+        if count_nonzero == 0:
+            return Detector0DAttr(shape, center, size, dims)
+        elif count_nonzero == 1:
+            return Detector1DAttr(shape, center, size, dims)
+        elif count_nonzero == 2:
+            return Detector2DAttr(shape, center, size, dims)
+        else:
+            raise NotImplementedError
+
+
+class Detector0DAttr(DetectorAttr):
+    def __init__(self, shape = None, center = None, size = None, dims = None):
+        if shape is None:
+            shape = tuple([])
+        super().__init__(shape, center, size, dims)
+        if self.ndim != 0:
+            raise ValueError(self.__class__, ' is only consistent with 0D case')
+
+    def meshgrid(self):
+        raise NotImplementedError
+
+    def unit_centers(self):
+        raise NotImplementedError
+
 
 class Detector1DAttr(DetectorAttr):
     def __init__(self, shape = None, center = None, size = None, dims = None):
@@ -191,8 +222,10 @@ class ProjectionAttr(Attribute):
         self._source_to_detector = np.float32(source_to_detector)
         self._source_to_image = np.float32(source_to_image)
         self._angle = np.float32(angle)
-        if detector_attr.ndim == 1:
-            self._detector_attr = Detector1DAttr(**detector_attr.__dict__)
+        if detector_attr.ndim == 0:
+            self._detector_attr = Detector0DAttr(*detector_attr.__dict__.values())
+        elif detector_attr.ndim == 1:
+            self._detector_attr = Detector1DAttr(*detector_attr.__dict__.values())
         elif detector_attr.ndim == 2:
             self._detector_attr = Detector2DAttr(*detector_attr.__dict__.values())
         else:
@@ -237,6 +270,11 @@ class ProjectionAttr(Attribute):
         return self.__class__(
             *f(self.source_to_detector, self.source_to_image, self.angle, self.detector_attr)
         )
+
+    def squeeze(self):
+        detector_attr = self.detector_attr.squeeze()
+        return ProjectionAttr(self.source_to_detector, self.source_to_image, self.angle,
+                              detector_attr)
 
 
 class ProjectionFlatAttr(ProjectionAttr):
@@ -317,4 +355,3 @@ class ProjectionCurveAttr(ProjectionAttr):
             return self.detector_attr.locate((u, v))
         else:
             raise None
-

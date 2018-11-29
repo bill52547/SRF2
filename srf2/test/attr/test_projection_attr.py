@@ -46,6 +46,16 @@ class Test_DetectorAttr:
         assert d.transpose() == d.transpose(['v', 'u']) == d.transpose('vu') == \
                d.transpose([1, 0]) == d2 == d.T
 
+    def test_squeeze(self):
+        param = {'shape': (2, 2), 'center': (0, 0), 'size': (1, 1), 'dims': ('u', 'v')}
+        d = DetectorAttr(**param)
+        assert isinstance(d.squeeze(), Detector2DAttr)
+        param = {'shape': (2, 1), 'center': (0, 0), 'size': (1, 1), 'dims': ('u', 'v')}
+        param1 = {'shape': (2,), 'center': (0,), 'size': (1,), 'dims': ('u',)}
+        d = DetectorAttr(**param)
+        assert isinstance(d.squeeze(), Detector1DAttr)
+        assert d.squeeze() == Detector1DAttr(**param1)
+
 
 class Test_Detector1DAttr:
     pass
@@ -78,6 +88,18 @@ class Test_ProjectionAttr:
 
     def test_detector_unit_centers(self):
         pass
+
+    def test_squeeze(self):
+        param = {'shape': (2, 2), 'center': (0, 0), 'size': (1, 1), 'dims': ('u', 'v')}
+        d = Detector2DAttr(**param)
+        p = ProjectionAttr(200, 100, 0, d)
+        assert p.squeeze() == p
+
+        param = {'shape': (2, 1), 'center': (0, 0), 'size': (1, 1), 'dims': ('u', 'v')}
+        param1 = {'shape': (2,), 'center': (0,), 'size': (1,), 'dims': ('u',)}
+        d = Detector2DAttr(**param)
+        p = ProjectionAttr(200, 100, 0, d)
+        assert p.squeeze() == ProjectionAttr(200, 100, 0, Detector1DAttr(**param1))
 
 
 class Test_ProjectionFlatAttr:
