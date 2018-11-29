@@ -29,7 +29,13 @@ class Test_ImageAttr:
         assert attr.n_y == 2
         assert attr.n_z == 3
         assert attr.n_t == 1
-        assert attr.num() == 6
+        assert attr.numel() == 6
+
+    def test_io(self):
+        o1 = ImageAttr((1, 1, 1))
+        o1.save_h5('tmp.h5')
+        o2 = ImageAttr.load_h5('tmp.h5')
+        assert o1 == o2
 
     def test_getitem(self):
         shape = (4, 2, 3)
