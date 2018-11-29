@@ -45,7 +45,7 @@ class Attribute(object):
         :param other:
         :return: bool
         '''
-        if self.__class__ != other.__class__:
+        if not isinstance(other, self.__class__):
             return False
         for key, value in self.__dict__.items():
             if value != other.__getattribute__(key):
@@ -72,7 +72,11 @@ class Attribute(object):
         with h5py.File(path, mode) as fout:
             group = fout.create_group(self.__class__.__name__)
             for key, value in self.__dict__.items():
-                group.attrs.create(key, data = _encode_utf8(value))
+                if key.startswith('_'):
+                    key1 = key[1:]
+                else:
+                    key1 = key
+                group.attrs.create(key1, data = _encode_utf8(value))
 
     @classmethod
     def load_h5(cls, path = None):
@@ -85,6 +89,10 @@ class Attribute(object):
             group = fin[cls.__name__]
             dict_attrs = {}
             for key, value in group.attrs.items():
+                if key.startswith('_'):
+                    key1 = key[1:]
+                else:
+                    key1 = key
                 dict_attrs[key] = _decode_utf8(value)
             return cls(**dict_attrs)
 
@@ -102,9 +110,6 @@ class Attribute(object):
 
 
 class Object(object):
-    _data: np.ndarray
-    _attr: Attribute
-
     @property
     def data(self):
         return self._data
@@ -138,17 +143,17 @@ class Object(object):
 
         self.attr.save_h5(path, mode)
         with h5py.File(path, 'r+') as fout:
-            fout.create_dataset('_data', data = self.data, compression = "gzip")
+            fout.create_dataset('data', data = self.data, compression = "gzip")
 
     @classmethod
     def load_h5(cls, path = None):
         if cls is Object:
             return NotImplementedError
 
-        _attr = cls._attr.__class__.load_h5(path)
+        attr = cls._attr.__class__.load_h5(path)
         with h5py.File(path, 'r') as fin:
-            _data = np.array(fin['_data'])
-            return cls(_data, _attr)
+            data = np.array(fin['data'])
+            return cls(data, attr)
 
     @abstractmethod
     def map(self, _):

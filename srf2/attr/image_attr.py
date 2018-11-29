@@ -9,16 +9,11 @@ __all__ = ('ImageAttr', 'Image0DAttr', 'Image1DAttr', 'Image2DAttr', 'Image3DAtt
 
 
 class ImageAttr(Attribute):
-    _shape: tuple
-    _center: tuple
-    _size: tuple
-    _dims: tuple
-
-    def __init__(self, _shape = None, _center = None, _size = None, _dims = None):
-        self._shape = tuple(_shape) if _shape is not None else tuple([])
-        self._center = tuple(_center) if _center is not None else tuple([0 for _ in self._shape])
-        self._size = tuple(_size) if _size is not None else tuple([k for k in self._shape])
-        self._dims = tuple(_dims) if _dims is not None else ('x', 'y', 'z', 't')[:len(self._shape)]
+    def __init__(self, shape = None, center = None, size = None, dims = None):
+        self._shape = tuple(shape) if shape is not None else tuple([])
+        self._center = tuple(center) if center is not None else tuple([0 for _ in self._shape])
+        self._size = tuple(size) if size is not None else tuple([k for k in self._shape])
+        self._dims = tuple(dims) if dims is not None else ('x', 'y', 'z', 't')[:len(self._shape)]
         if not (len(self._shape) == len(self._center) == len(self._size) == len(self._dims)):
             raise ValueError(self.__dict__, ' should have same lengths')
         if len(self._shape) < 0 or len(self._shape) > 4:
@@ -76,7 +71,7 @@ class ImageAttr(Attribute):
         else:
             return 1
 
-    def num(self, dims = None):
+    def numel(self, dims = None):
         if dims is None:
             dims = self.dims
         if dims is str:
@@ -171,10 +166,10 @@ class ImageAttr(Attribute):
 
 
 class Image0DAttr(ImageAttr):
-    def __init__(self, _shape = None, _center = None, _size = None, _dims = None):
-        if _shape is None:
-            _shape = tuple([])
-        super().__init__(_shape, _center, _size, _dims)
+    def __init__(self, shape = None, center = None, size = None, dims = None):
+        if shape is None:
+            shape = tuple([])
+        super().__init__(shape, center, size, dims)
         if len(self.shape) != 0:
             raise ValueError(self.__class__, ' is only consistent with 0D case')
 
@@ -186,11 +181,11 @@ class Image0DAttr(ImageAttr):
 
 
 class Image1DAttr(ImageAttr):
-    def __init__(self, _shape = None, _center = None, _size = None, _dims = None):
-        if _shape is None:
-            _shape = (1,)
+    def __init__(self, shape = None, center = None, size = None, dims = None):
+        if shape is None:
+            shape = (1,)
 
-        super().__init__(_shape, _center, _size, _dims)
+        super().__init__(shape, center, size, dims)
         if len(self.shape) != 1:
             raise ValueError(self.__class__, ' is only consistent with 1D case')
 
@@ -203,10 +198,10 @@ class Image1DAttr(ImageAttr):
 
 
 class Image2DAttr(ImageAttr):
-    def __init__(self, _shape = None, _center = None, _size = None, _dims = None):
-        if _shape is None:
-            _shape = (1, 1)
-        super().__init__(_shape, _center, _size, _dims)
+    def __init__(self, shape = None, center = None, size = None, dims = None):
+        if shape is None:
+            shape = (1, 1)
+        super().__init__(shape, center, size, dims)
         if len(self.shape) != 2:
             raise ValueError(self.__class__, ' is only consistent with 2D case')
 
@@ -224,10 +219,10 @@ class Image2DAttr(ImageAttr):
 
 
 class Image3DAttr(ImageAttr):
-    def __init__(self, _shape = None, _center = None, _size = None, _dims = None):
-        if _shape is None:
-            _shape = (1, 1, 1)
-        super().__init__(_shape, _center, _size, _dims)
+    def __init__(self, shape = None, center = None, size = None, dims = None):
+        if shape is None:
+            shape = (1, 1, 1)
+        super().__init__(shape, center, size, dims)
         if len(self.shape) != 3:
             raise ValueError(self.__class__, ' is only consistent with 3D case')
 
@@ -247,10 +242,10 @@ class Image3DAttr(ImageAttr):
 
 
 class Image4DAttr(ImageAttr):
-    def __init__(self, _shape = None, _center = None, _size = None, _dims = None):
-        if _shape is None:
-            _shape = (1, 1, 1, 1)
-        super().__init__(_shape, _center, _size, _dims)
+    def __init__(self, shape = None, center = None, size = None, dims = None):
+        if shape is None:
+            shape = (1, 1, 1, 1)
+        super().__init__(shape, center, size, dims)
         if len(self.shape) != 4:
             raise ValueError(self.__class__, ' is only consistent with 4D case')
 
