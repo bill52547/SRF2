@@ -17,28 +17,6 @@ class Image(Object):
                 raise ValueError
             self._data.astype(np.float32)
 
-    @property
-    def data(self):
-        return self._data
-
-    @property
-    def attr(self):
-        return self._attr
-
-    def __eq__(self, other):
-        if not isinstance(other, self.__class__):
-            return False
-
-        if self.attr != other.attr:
-            return False
-
-        if not self and not other:
-            return True
-        elif not self or not other:
-            return False
-
-        return np.array_equal(self.data, other.data)
-
     def __bool__(self):
         return False if self.data is None else True
 

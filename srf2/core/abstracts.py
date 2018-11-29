@@ -119,12 +119,18 @@ class Object(object):
         return self._attr
 
     def __eq__(self, other):
-        if self.__class__ != other.__class__:
+        if not isinstance(other, self.__class__):
             return False
+
         if self.attr != other.attr:
             return False
-        return np.array_equal(self.data, other.data)
 
+        if not self and not other:
+            return True
+        elif not self or not other:
+            return False
+
+        return np.array_equal(self.data, other.data)
     def save_h5(self, path = None, mode = 'w'):
         '''**save to hdf5 file**
         save a attribute object to hdf5 file, in term of hdf5 group/attrs. It is saved in a group
