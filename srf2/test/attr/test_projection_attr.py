@@ -125,3 +125,15 @@ class Test_ProjectionCurveAttr:
 
     def test_locate(self):
         pass
+
+
+class Test_ProjectionSeriesAttr:
+    pass
+
+
+class Test_ProjectionFlatSeriesAttr:
+    pass
+
+
+class Test_ProjectionCurveSeriesAttr:
+    pass
