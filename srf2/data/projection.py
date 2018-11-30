@@ -1,91 +1,110 @@
-import h5py
 import numpy as np
-from collections import List
-from ..core.abstracts import Object
-from ..attrs.projectionattr import *
 
-__all__ = ('Projection', 'ProjectionSeries', 'ProjectionFlatAttr', 'ProjectionCurveAttr',)
+from ..attr.projection_attr import *
+from ..core.abstracts import Object
+
+__all__ = ('Projection', 'ProjectionFlat', 'ProjectionCurve',
+           'ProjectionSeries', 'ProjectionFlatSeries', 'ProjectionCurveSeries',)
 
 
 class Projection(Object):
-    _data: np.ndarray
-    _attr: ProjectionAttr
-
-    def __init__(self, data=None, attr: ProjectionAttr = None):
-        super().__init__(data, attr)
-
-    @property
-    def data(self):
-        return self._data
-
-    @property
-    def attr(self):
-        return self._attr
-
-    def map(self, f):
-        return self.__class__(*f(self.data, self.attr))
-
-    def __getitem__(self, item):
-        def _getitem(item):
-            def kernel(data, attr):
-                return data[item], attr[item]
-
-            return kernel
-
-        return self.map(_getitem(item))
-
-
-class ProjectionSeries:
-    _data: List[np.ndarray]
-    _attr: List[ProjectionAttr]
-
-    def __init__(self, data: List[np.ndarray], attr: List[ProjectionAttr]):
-        self._data = data
+    def __init__(self, attr: ProjectionAttr, data: np.ndarray = None):
+        if attr is None:
+            raise ValueError
         self._attr = attr
+        self._data = data
+        if data is not None:
+            if not isinstance(data, np.ndarray):
+                raise ValueError
+            self._data.astype(np.float32)
 
-    @property
-    def data(self):
-        return self._data
-
-    @property
-    def attr(self):
-        return self._attr
+    def __bool__(self):
+        return False if self.data is None else True
 
     def map(self, f):
-        return self.__class__(*f(self.data, self.attr))
+        return self.__class__(*f(self.attr, self.data))
+
+    def transpose(self, perm = None):
+        if perm is None:
+            perm = np.arange(self.attr.ndim)[::-1]
+        if set(perm).issubset({'x', 'y', 'z'}):
+            perm = [self.attr.dims.index(e) for e in perm]
+
+        def _transpose(attr, data):
+            if data is None:
+                return attr.transpose(perm), None
+            else:
+                return attr.transpose(perm), data.transpose(perm)
+
+        return self.map(_transpose)
+
+    @property
+    def T(self):
+        return self.transpose()
 
     def __getitem__(self, item):
-        def _getitem(item):
-            item1, item2 = item[:-1], item[-1]
+        return self.__class__(self.attr[item], self.data[item])
 
-            def kernel(data, attr):
-                return [d[item1] for d in data[item2]], [a[item1] for a in attr[item2]]
+    def squeeze(self):
+        attr = self.attr.squeeze()
+        data = self.data.squeeze()
+        if isinstance(attr, ProjectionCurveAttr):
+            return ProjectionCurve(attr, data)
+        elif isinstance(attr, ProjectionFlatAttr):
+            return ProjectionFlat(attr, data)
+        else:
+            return Projection(attr, data)
 
-            return kernel
 
-        return self.map(_getitem(item))
+class ProjectionCurve(Projection):
+    def __init__(self, attr: ProjectionCurveAttr, data: np.ndarray = None):
+        super().__init__(attr, data)
+
+
+class ProjectionFlat(Projection):
+    def __init__(self, attr: ProjectionFlatAttr, data: np.ndarray = None):
+        super().__init__(attr, data)
+
+
+class ProjectionSeries(Object):
+    def __init__(self, attr: ProjectionSeriesAttr, data: np.ndarray = None):
+        self._attr = attr
+        self._data = data
+        if data is not None:
+            if not isinstance(data, np.ndarray):
+                raise ValueError
+            self._data.astype(np.float32)
 
     def __len__(self):
-        return len(self.attr)
+        return len(self.data)
+
+    def __bool__(self):
+        return not self.data and len(self) > 0
+
+    def map(self, f):
+        return self.__class__(*f(self.attr, self.data))
+
+    def __getitem__(self, item):
+        if len(item) == 1:
+            item1, item2 = [None] * (self.data.ndim - 1), item
+        elif len(item) == self.data.ndim:
+            item1, item2 = item[:-1], item[-1]
+        else:
+            raise NotImplementedError
+        if self:
+            return self.__class__(self.attr[item2], self.data[[item1, item2]])
+        else:
+            return self.__class__(self.attr[item2], None)
+
+    def squeeze(self):
+        return self.__class__(self.attr.squeeze(), self.data.squeeze())
 
 
 class ProjectionFlatSeries(ProjectionSeries):
-    _data: List[np.ndarray]
-    _attr: List[ProjectionFlatAttr]
-
-    def __init__(self, data: List[np.ndarray], attr: List[ProjectionFlatAttr]):
-        super().__init__(data, attr)
-        if attr[0] is not ProjectionFlatAttr:
-            raise ValueError
+    def __init__(self, attr: ProjectionFlatSeriesAttr, data: np.ndarray = None):
+        super().__init__(attr, data)
 
 
 class ProjectionCurveSeries(ProjectionSeries):
-    _data: List[np.ndarray]
-    _attr: List[ProjectionCurveAttr]
-
-    def __init__(self, data: List[np.ndarray], attr: List[ProjectionCurveAttr]):
-        super().__init__(data, attr)
-        if attr[0] is not ProjectionCurveAttr:
-            raise ValueError
-
-
+    def __init__(self, attr: ProjectionCurveSeriesAttr, data: np.ndarray = None):
+        super().__init__(attr, data)
