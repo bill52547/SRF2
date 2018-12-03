@@ -16,7 +16,7 @@ import h5py
 import numpy as np
 from numpy.core import isscalar
 
-__all__ = ('Attribute', 'Object')
+__all__ = ('Attribute', 'ObjectWithAttrData')
 
 
 def _encode_utf8(val):
@@ -93,7 +93,7 @@ class Attribute(object):
                     key1 = key[1:]
                 else:
                     key1 = key
-                dict_attrs[key] = _decode_utf8(value)
+                dict_attrs[key1] = _decode_utf8(value)
             return cls(**dict_attrs)
 
     def __repr__(self):
@@ -109,14 +109,21 @@ class Attribute(object):
         raise NotImplementedError('map method is valid for ', self.__class__, ' object.')
 
 
-class Object(object):
-    @property
-    def data(self):
-        return self._data
+class ObjectWithAttrData(object):
+    _attr = None
+    _data = None
+
+    def __init__(self, attr, data):
+        self._attr = attr
+        self._data = data
 
     @property
     def attr(self):
         return self._attr
+
+    @property
+    def data(self):
+        return self._data
 
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
@@ -131,6 +138,7 @@ class Object(object):
             return False
 
         return np.array_equal(self.data, other.data)
+
     def save_h5(self, path = None, mode = 'w'):
         '''**save to hdf5 file**
         save a attribute object to hdf5 file, in term of hdf5 group/attrs. It is saved in a group
@@ -153,7 +161,7 @@ class Object(object):
 
     @classmethod
     def load_h5(cls, path = None):
-        if cls is Object:
+        if cls is ObjectWithAttrData:
             return NotImplementedError
 
         attr = cls._attr.__class__.load_h5(path)
@@ -166,7 +174,8 @@ class Object(object):
         raise NotImplementedError
 
     def __repr__(self):
-        out_str = f'{type(self)} object at {hex(id(self))} with attributes as:\n'
+        out_str = '{0} object at {1} with attributes as: '.format(type(self), hex(id(self)),
+                                                                  end = '\n')
         out_str += self.attr.__repr__()
         return out_str
 
@@ -198,6 +207,17 @@ class Object(object):
 
     __radd__ = __add__
 
+    def __iadd__(self, other):
+        if isscalar(other) or isinstance(other, np.ndarray):
+            self._data += other
+        elif isinstance(other, self.__class__):
+            if self.attr == other.attr:
+                self._data += other.data
+            else:
+                raise ValueError
+        else:
+            raise ValueError
+
     def __sub__(self, other):
         def _sub(o):
             def kernel(data, attr):
@@ -211,6 +231,32 @@ class Object(object):
             return kernel
 
         return self.map(_sub(other))
+
+    def __rsub__(self, other):
+        def _rsub(o):
+            def kernel(data, attr):
+                if isscalar(o) or isinstance(o, np.ndarray):
+                    return o - data, attr
+                elif isinstance(o, self.__class__):
+                    return o.data - data, attr
+                else:
+                    raise ValueError
+
+            return kernel
+
+        return self.map(_rsub(other))
+
+    def __isub__(self, other):
+        if isscalar(other) or isinstance(other, np.ndarray):
+            self._data -= other
+        elif isinstance(other, self.__class__):
+            if self.attr == other.attr:
+                self._data -= other.data
+            else:
+                raise ValueError
+        else:
+            raise ValueError
+
 
     def __mul__(self, other):
         def _mul(o):
@@ -227,6 +273,17 @@ class Object(object):
         return self.map(_mul(other))
 
     __rmul__ = __mul__
+
+    def __imul__(self, other):
+        if isscalar(other) or isinstance(other, np.ndarray):
+            self._data *= other
+        elif isinstance(other, self.__class__):
+            if self.attr == other.attr:
+                self._data *= other.data
+            else:
+                raise ValueError
+        else:
+            raise ValueError
 
     def __truediv__(self, other):
         def _truediv(o):

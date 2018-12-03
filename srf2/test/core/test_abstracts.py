@@ -45,7 +45,7 @@ class Test_Attribute:
         print(obj)
 
 
-class Obj1(Object):
+class Obj1(ObjectWithAttrData):
     _attr = Attr()
 
     def __init__(self, _data = np.zeros(1, ), _attr = Attr()):
