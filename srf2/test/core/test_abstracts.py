@@ -45,29 +45,40 @@ class Test_Attribute:
         print(obj)
 
 
-class Obj1(Object):
-    _attr = Attr()
+class Attr2(Attribute):
+    def __init__(self, shape = (5,)):
+        self._shape = shape
 
-    def __init__(self, _data = np.zeros(1, ), _attr = Attr()):
-        self._data = _data
-        self._attr = _attr
+    @property
+    def shape(self):
+        return self._shape
+
+
+class Obj1(Object):
+    _attr = Attr2()
+
+    def __init__(self, attr = Attr2(), data = np.zeros(5, )):
+        super().__init__(attr, data)
 
     def map(self, f):
-        return self.__class__(*f(self._data, self._attr))
+        return self.__class__(*f(self.attr, self.data))
 
 
 class Test_Object:
     def test_init(self):
+        attr = Attr2()
         o1 = Obj1()
-        o2 = Obj1(np.array([5]))
+        o2 = Obj1(attr, np.array([5] * 5))
 
     def test_eq(self):
-        o1 = Obj1()
-        o2 = Obj1(np.zeros(1, ))
+        attr = Attr2()
+        o1 = Obj1(attr)
+        o2 = Obj1(o1.attr, np.zeros(5, ))
         assert o1 == o2
 
     def test_io(self):
-        o1 = Obj1()
+        attr = Attr2()
+        o1 = Obj1(attr)
         o1.save_h5('tmp.h5')
         o2 = Obj1.load_h5('tmp.h5')
         assert o1 == o2
@@ -77,39 +88,51 @@ class Test_Object:
         # print(obj)
 
     def test_neg(self):
-        o1 = Obj1(np.ones(5, ))
-        o2 = Obj1(-np.ones(5, ))
+        attr = Attr2()
+
+        o1 = Obj1(attr, np.ones(5, ))
+        o2 = Obj1(attr, -np.ones(5, ))
         assert -o1 == o2
 
     def test_pos(self):
-        o1 = Obj1(np.ones(5, ))
-        o2 = Obj1(np.ones(5, ))
+        attr = Attr2()
+
+        o1 = Obj1(attr, np.ones(5, ))
+        o2 = Obj1(attr, np.ones(5, ))
         assert o1 == o2
 
     def test_add(self):
-        o1 = Obj1(np.ones(5, ))
-        o2 = Obj1(np.ones(5, ) * 2)
-        assert o1 + o2 == Obj1(np.ones(5, ) * 3)
-        assert o2 + o1 == Obj1(np.ones(5, ) * 3)
+        attr = Attr2()
+
+        o1 = Obj1(attr, np.ones(5, ))
+        o2 = Obj1(attr, np.ones(5, ) * 2)
+        assert o1 + o2 == Obj1(attr, np.ones(5, ) * 3)
+        assert o2 + o1 == Obj1(attr, np.ones(5, ) * 3)
         assert o1 + 1 == o2
         assert 1 + o1 == o2
 
     def test_sub(self):
-        o1 = Obj1(np.ones(5, ))
-        o2 = Obj1(np.ones(5, ) * 2)
+        attr = Attr2()
+
+        o1 = Obj1(attr, np.ones(5, ))
+        o2 = Obj1(attr, np.ones(5, ) * 2)
         assert o2 - o1 == o1
         assert o2 - 1 == o1
 
     def test_mul(self):
-        o1 = Obj1(np.ones(5, ))
-        o2 = Obj1(np.ones(5, ) * 2)
+        attr = Attr2()
+
+        o1 = Obj1(attr, np.ones(5, ))
+        o2 = Obj1(attr, np.ones(5, ) * 2)
         assert o1 * o2 == o2
         assert o2 * o1 == o2
         assert o1 * 2 == o2
         assert 2 * o1 == o2
 
     def test_div(self):
-        o1 = Obj1(np.ones(5, ))
-        o2 = Obj1(np.ones(5, ) * 2)
+        attr = Attr2()
+
+        o1 = Obj1(attr, np.ones(5, ))
+        o2 = Obj1(attr, np.ones(5, ) * 2)
         assert o2 / o1 == o2
         assert o2 / 2 == o1
