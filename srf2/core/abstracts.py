@@ -14,9 +14,14 @@ from abc import abstractmethod
 
 import h5py
 import numpy as np
+from numba import cuda
+from numba.cuda.cudadrv.devicearray import DeviceNDArray as DeviceNDArray
 from numpy.core import isscalar
 
-__all__ = ('Attribute', 'Object')
+from .cuda_arithmetics import *
+from .type_assert import *
+
+__all__ = ('Attribute', 'Object',)
 
 
 def _encode_utf8(val):
@@ -39,6 +44,7 @@ class Attribute(object):
     attribute object only contains small descriptions, which can only be a tuple or a value/string (
     <64k) and can be stored in a hdf5 attibute.
     '''
+    memory_type = 'cpu'
 
     def __eq__(self, other):
         '''**Equality verify**
@@ -52,6 +58,22 @@ class Attribute(object):
                 return False
         else:
             return True
+
+    def to_device(self):
+        self.memory_type = 'gpu'
+
+    def to_host(self):
+        self.memory_type = 'cpu'
+
+    def copy(self):
+        dict_attrs = {}
+        for key, value in self.__dict__.items():
+            if key.startswith('_'):
+                key1 = key[1:]
+            else:
+                key1 = key
+            dict_attrs[key1] = _decode_utf8(value)
+        return self.__class__(**dict_attrs)
 
     def save_h5(self, path = None, mode = 'w'):
         '''**save to hdf5 file**
@@ -93,7 +115,7 @@ class Attribute(object):
                     key1 = key[1:]
                 else:
                     key1 = key
-                dict_attrs[key] = _decode_utf8(value)
+                dict_attrs[key1] = _decode_utf8(value)
             return cls(**dict_attrs)
 
     def __repr__(self):
@@ -110,18 +132,66 @@ class Attribute(object):
 
 
 class Object(object):
-    @property
-    def data(self):
-        return self._data
+    _attr = None
+
+    @arg_type_assert(None, Attribute)
+    def __init__(self, attr, data = None):
+        self._attr = attr
+        self._data = data
 
     @property
     def attr(self):
         return self._attr
 
+    @property
+    def data(self):
+        return self._data
+
+    def to_device(self, stream = None):
+        if self.attr.memory_type == 'gpu':
+            return
+        if stream is None:
+            stream = cuda.stream()
+        self._attr.to_device()
+        self._data = cuda.to_device(self.data, stream)
+
+    def to_host(self, stream = None):
+        if self.attr.memory_type == 'cpu':
+            return
+        if stream is None:
+            stream = cuda.stream()
+        self._attr.to_host()
+        self._data = self.data.copy_to_host(stream = stream)
+
+    def to_target(self, target = None, stream = None):
+        if target is None:
+            return
+        if isinstance(target, self.__class__):
+            if target.attr.memory_type == 'cpu':
+                self.to_host(stream)
+            elif target.attr.memory_type == 'gpu':
+                self.to_device(stream)
+            else:
+                raise NotImplementedError
+        elif target == 'cpu':
+            self.to_host(stream)
+        elif target == 'gpu':
+            self.to_device(stream)
+        else:
+            raise NotImplementedError
+
+    def copy(self):
+        if self.attr.memory_type == 'gpu':
+            h_data = self.data.copy_to_host().copy()
+            d_data = cuda.to_device(h_data)
+            return self.__class__(self.attr.copy(), d_data)
+        elif self.attr.memory_type == 'cpu':
+            h_data = self.data.copy()
+            return self.__class__(self.attr.copy(), h_data)
+
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
             return False
-
         if self.attr != other.attr:
             return False
 
@@ -129,8 +199,11 @@ class Object(object):
             return True
         elif not self or not other:
             return False
+        if self.attr.memory_type == 'cpu':
+            return np.array_equal(other.data, self.data)
+        else:
+            raise NotImplementedError
 
-        return np.array_equal(self.data, other.data)
     def save_h5(self, path = None, mode = 'w'):
         '''**save to hdf5 file**
         save a attribute object to hdf5 file, in term of hdf5 group/attrs. It is saved in a group
@@ -142,11 +215,10 @@ class Object(object):
 
         if path is None:
             path = 'tmp' + self.__class__.__name__ + '.h5'
-
         if not str.endswith(path, 'h5') and not str.endswith(path, 'hdf5'):
             raise ValueError(self.__class__.save_h5.__qualname__,
                              ' should have path input ends with h5 or hdf5')
-
+        self.to_host()
         self.attr.save_h5(path, mode)
         with h5py.File(path, 'r+') as fout:
             fout.create_dataset('data', data = self.data, compression = "gzip")
@@ -159,85 +231,184 @@ class Object(object):
         attr = cls._attr.__class__.load_h5(path)
         with h5py.File(path, 'r') as fin:
             data = np.array(fin['data'])
-            return cls(data, attr)
+            return cls(attr, data)
 
-    @abstractmethod
-    def map(self, _):
-        raise NotImplementedError
+    def map(self, f):
+        return self.__class__(*f(self.attr, self.data))
 
     def __repr__(self):
-        out_str = f'{type(self)} object at {hex(id(self))} with attributes as:\n'
+        out_str = f'{type(self)} object at {hex(id(self))}:\n'
+        out_str += 'with attributes as:\n'
         out_str += self.attr.__repr__()
         return out_str
 
     def __neg__(self):
-        def _neg(data, attr):
-            return -data, attr
+        if self.attr.memory_type == 'cpu':
+            def _neg(attr, data):
+                return attr, -data
 
-        return self.map(_neg)
+            return self.copy().map(_neg)
+        elif self.attr.memory_type == 'gpu':
+            return self.copy().__imul__(-1)
 
     def __pos__(self):
-        def _pos(data, attr):
-            return data, attr
-
-        return self.map(_pos)
+        if self.attr.memory_type == 'cpu':
+            return self.copy()
+        elif self.attr.memory_type == 'gpu':
+            return self.copy()
 
     def __add__(self, other):
-        def _add(o):
-            def kernel(data, attr):
-                if isscalar(o) or isinstance(o, np.ndarray):
-                    return data + o, attr
-                elif isinstance(o, self.__class__):
-                    return data + o.data, attr
-                else:
-                    raise NotImplementedError
+        obj = self.copy()
+        obj += other
+        return obj
 
-            return kernel
-
-        return self.map(_add(other))
-
-    __radd__ = __add__
+    def __radd__(self, other):
+        if self.attr.memory_type == 'cpu':
+            return self + other
+        else:
+            raise NotImplementedError
 
     def __sub__(self, other):
-        def _sub(o):
-            def kernel(data, attr):
-                if isscalar(o) or isinstance(o, np.ndarray):
-                    return data - o, attr
-                elif isinstance(o, self.__class__):
-                    return data - o.data, attr
-                else:
-                    raise NotImplementedError
-
-            return kernel
-
-        return self.map(_sub(other))
+        obj = self.copy()
+        obj -= other
+        return obj
 
     def __mul__(self, other):
-        def _mul(o):
-            def kernel(data, attr):
-                if isscalar(o) or isinstance(o, np.ndarray):
-                    return data * o, attr
-                elif isinstance(o, self.__class__):
-                    return data * o.data, attr
-                else:
-                    raise NotImplementedError
+        obj = self.copy()
+        obj *= other
+        return obj
 
-            return kernel
-
-        return self.map(_mul(other))
-
-    __rmul__ = __mul__
+    def __rmul__(self, other):
+        if self.attr.memory_type == 'cpu':
+            return self * other
+        else:
+            raise NotImplementedError
 
     def __truediv__(self, other):
-        def _truediv(o):
-            def kernel(data, attr):
-                if isscalar(o) or isinstance(o, np.ndarray):
-                    return data / o, attr
-                elif isinstance(o, self.__class__):
-                    return data / o.data, attr
+        obj = self.copy()
+        obj /= other
+        return obj
+
+    def __iadd__(self, other):
+        if self.attr.memory_type == 'cpu':
+            if isscalar(other) or isinstance(other, np.ndarray):
+                self._data += other
+            elif isinstance(other, self.__class__):
+                other.to_host()
+                self._data += other.data
+            elif isinstance(other, DeviceNDArray):
+                self._data += other.copy_to_host()
+            else:
+                raise NotImplementedError
+        elif self.attr.memory_type == 'gpu':
+            if isinstance(other, self.__class__):
+                if other.attr.memory_type == 'cpu':
+                    data1 = cuda.to_device(other.data)
                 else:
-                    raise NotImplementedError
+                    data1 = other._data
+                cuda_iadd_with_array(self._data, data1)
+            elif isinstance(other, DeviceNDArray):
+                cuda_iadd_with_array(self._data, other)
+            elif isinstance(other, np.ndarray):
+                data1 = cuda.to_device(other)
+                cuda_iadd_with_array(self._data, data1)
+            elif isscalar(other):
+                cuda_iadd_with_scale(self._data, other)
+            else:
+                raise NotImplementedError
+        else:
+            raise NotImplementedError
+        return self
 
-            return kernel
+    def __isub__(self, other):
+        if self.attr.memory_type == 'cpu':
+            if isscalar(other) or isinstance(other, np.ndarray):
+                self._data -= other
+            elif isinstance(other, self.__class__):
+                other.to_host()
+                self._data -= other.data
+            elif isinstance(other, DeviceNDArray):
+                self._data -= other.copy_to_host()
+            else:
+                raise NotImplementedError
+        elif self.attr.memory_type == 'gpu':
+            if isinstance(other, self.__class__):
+                if other.attr.memory_type == 'cpu':
+                    data1 = cuda.to_device(other.data)
+                else:
+                    data1 = other._data
+                cuda_isub_with_array(self._data, data1)
+            elif isinstance(other, DeviceNDArray):
+                cuda_isub_with_array(self._data, other)
+            elif isinstance(other, np.ndarray):
+                data1 = cuda.to_device(other)
+                cuda_isub_with_array(self._data, data1)
+            elif isscalar(other):
+                cuda_isub_with_scale(self._data, other)
+            else:
+                raise NotImplementedError
+        else:
+            raise NotImplementedError
+        return self
 
-        return self.map(_truediv(other))
+    def __imul__(self, other):
+        if self.attr.memory_type == 'cpu':
+            if isscalar(other) or isinstance(other, np.ndarray):
+                self._data *= other
+            elif isinstance(other, self.__class__):
+                other.to_host()
+                self._data *= other.data
+            elif isinstance(other, DeviceNDArray):
+                self._data *= other.copy_to_host()
+            else:
+                raise NotImplementedError
+        elif self.attr.memory_type == 'gpu':
+            if isinstance(other, self.__class__):
+                if other.attr.memory_type == 'cpu':
+                    data1 = cuda.to_device(other.data)
+                else:
+                    data1 = other._data
+                cuda_imul_with_array(self._data, data1)
+            elif isinstance(other, DeviceNDArray):
+                cuda_imul_with_array(self._data, other)
+            elif isinstance(other, np.ndarray):
+                data1 = cuda.to_device(other)
+                cuda_imul_with_array(self._data, data1)
+            elif isscalar(other):
+                cuda_imul_with_scale(self._data, other)
+            else:
+                raise NotImplementedError
+        else:
+            raise NotImplementedError
+        return self
+
+    def __itruediv__(self, other):
+        if self.attr.memory_type == 'cpu':
+            if isscalar(other) or isinstance(other, np.ndarray):
+                self._data /= other
+            elif isinstance(other, self.__class__):
+                other.to_host()
+                self._data /= other.data
+            elif isinstance(other, DeviceNDArray):
+                self._data /= other.copy_to_host()
+            else:
+                raise NotImplementedError
+        elif self.attr.memory_type == 'gpu':
+            if isinstance(other, self.__class__):
+                if other.attr.memory_type == 'cpu':
+                    data1 = cuda.to_device(other.data)
+                else:
+                    data1 = other._data
+                cuda_itruediv_with_array(self._data, data1)
+            elif isinstance(other, DeviceNDArray):
+                cuda_itruediv_with_array(self._data, other)
+            elif isinstance(other, np.ndarray):
+                data1 = cuda.to_device(other)
+                cuda_itruediv_with_array(self._data, data1)
+            elif isscalar(other):
+                cuda_itruediv_with_scale(self._data, other)
+            else:
+                raise NotImplementedError
+        else:
+            raise NotImplementedError
+        return self
