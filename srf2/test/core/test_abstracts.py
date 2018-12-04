@@ -136,3 +136,209 @@ class Test_Object:
         o2 = Obj1(attr, np.ones(5, ) * 2)
         assert o2 / o1 == o2
         assert o2 / 2 == o1
+
+    def test_iadd(self):
+        attr = Attr2()
+
+        o1 = Obj1(attr, np.ones(5, ))
+        o2 = Obj1(attr, np.ones(5, ) * 2)
+        o1 += o2
+        o2 += 1
+        assert o1 == Obj1(attr, np.ones(5, ) * 3)
+        assert o2 == Obj1(attr, np.ones(5, ) * 3)
+
+    def test_isub(self):
+        attr = Attr2()
+
+        o1 = Obj1(attr, np.ones(5, ))
+        o2 = Obj1(attr, np.ones(5, ) * 2)
+        o1 -= o2
+        o2 -= 1
+        assert o1 == Obj1(attr, np.ones(5, ) * (-1))
+        assert o2 == Obj1(attr, np.ones(5, ) * 1)
+
+    def test_imul(self):
+        attr = Attr2()
+
+        o1 = Obj1(attr, np.ones(5, ))
+        o2 = Obj1(attr, np.ones(5, ) * 2)
+        o1 *= o2
+        o2 *= 2
+        assert o1 == Obj1(attr, np.ones(5, ) * 2)
+        assert o2 == Obj1(attr, np.ones(5, ) * 4)
+
+    def test_idiv(self):
+        attr = Attr2()
+
+        o1 = Obj1(attr, np.ones(5, ))
+        o2 = Obj1(attr, np.ones(5, ) * 2)
+        o1 /= o2
+        o2 /= 2
+        assert o1 == Obj1(attr, np.ones(5, ) * 0.5)
+        assert o2 == Obj1(attr, np.ones(5, ) * 1)
+
+    def test_neg_cuda(self):
+        attr = Attr2()
+        o1 = -Obj1(attr, np.ones(5, )).to_device()
+        attr = Attr2()
+        o2 = Obj1(attr, -np.ones(5, ))
+        assert o1.to_host() == o2
+
+    def test_pos_cuda(self):
+        attr = Attr2()
+        o1 = Obj1(attr, np.ones(5, )).to_device()
+        attr = Attr2()
+        o2 = Obj1(attr, np.ones(5, )).to_device()
+        assert o1.to_host() == o2.to_host()
+
+    def test_add_cuda(self):
+        attr1 = Attr2()
+        o1 = Obj1(attr1, np.ones(5, )).to_device()
+        attr2 = Attr2()
+        o2 = Obj1(attr2, np.ones(5, ) * 2).to_device()
+        attr3 = Attr2()
+        o3 = Obj1(attr3, np.ones(5, ) * 3)
+
+        assert (o1 + o2).to_host() == o3
+        assert (o1 + o2.to_host()).to_host() == o3
+        assert (o1 + 2).to_host() == o3
+
+    def test_sub_cuda(self):
+        attr1 = Attr2()
+        o1 = Obj1(attr1, np.ones(5, )).to_device()
+        attr2 = Attr2()
+        o2 = Obj1(attr2, np.ones(5, ) * 2).to_device()
+        attr3 = Attr2()
+        o3 = Obj1(attr3, np.ones(5, ) * -1)
+
+        assert (o1 - o2).to_host() == o3
+        assert (o1 - o2.to_host()).to_host() == o3
+        assert (o1 - 2).to_host() == o3
+
+    def test_mul_cuda(self):
+        attr1 = Attr2()
+        o1 = Obj1(attr1, np.ones(5, ) * 2).to_device()
+        attr2 = Attr2()
+        o2 = Obj1(attr2, np.ones(5, ) * 3).to_device()
+        attr3 = Attr2()
+        o3 = Obj1(attr3, np.ones(5, ) * 6)
+
+        assert (o1 * o2).to_host() == o3
+        assert (o1 * o2.to_host()).to_host() == o3
+        assert (o1 * 3).to_host() == o3
+
+    def test_div_cuda(self):
+        attr1 = Attr2()
+        o1 = Obj1(attr1, np.ones(5, )).to_device()
+        attr2 = Attr2()
+        o2 = Obj1(attr2, np.ones(5, ) * 2).to_device()
+        attr3 = Attr2()
+        o3 = Obj1(attr3, np.ones(5, ) * 0.5)
+
+        assert (o1 / o2).to_host() == o3
+        assert (o1 / o2.to_host()).to_host() == o3
+        assert (o1 / 2).to_host() == o3
+
+    def test_iadd_cuda(self):
+        attr1 = Attr2()
+        o1 = Obj1(attr1, np.ones(5, )).to_device()
+        attr2 = Attr2()
+        o2 = Obj1(attr2, np.ones(5, ) * 2).to_device()
+        attr3 = Attr2()
+        o3 = Obj1(attr3, np.ones(5, ) * 3)
+        o1 += o2
+        assert o1.to_host() == o3
+
+        attr1 = Attr2()
+        o1 = Obj1(attr1, np.ones(5, )).to_device()
+        attr3 = Attr2()
+        o3 = Obj1(attr3, np.ones(5, ) * 3)
+        o1 += 2
+        assert o1.to_host() == o3
+
+        attr1 = Attr2()
+        o1 = Obj1(attr1, np.ones(5, )).to_device()
+        attr2 = Attr2()
+        o2 = Obj1(attr2, np.ones(5, ) * 2).to_device()
+        attr3 = Attr2()
+        o3 = Obj1(attr3, np.ones(5, ) * 3)
+        o1 += o2.to_host()
+        assert o1.to_host() == o3
+
+    def test_isub_cuda(self):
+        attr1 = Attr2()
+        o1 = Obj1(attr1, np.ones(5, )).to_device()
+        attr2 = Attr2()
+        o2 = Obj1(attr2, np.ones(5, ) * 2).to_device()
+        attr3 = Attr2()
+        o3 = Obj1(attr3, np.ones(5, ) * -1)
+        o1 -= o2
+        assert o1.to_host() == o3
+
+        attr1 = Attr2()
+        o1 = Obj1(attr1, np.ones(5, )).to_device()
+        attr3 = Attr2()
+        o3 = Obj1(attr3, np.ones(5, ) * -1)
+        o1 -= 2
+        assert o1.to_host() == o3
+
+        attr1 = Attr2()
+        o1 = Obj1(attr1, np.ones(5, )).to_device()
+        attr2 = Attr2()
+        o2 = Obj1(attr2, np.ones(5, ) * 2).to_device()
+        attr3 = Attr2()
+        o3 = Obj1(attr3, np.ones(5, ) * -1)
+        o1 -= o2.to_host()
+        assert o1.to_host() == o3
+
+    def test_imul_cuda(self):
+        attr1 = Attr2()
+        o1 = Obj1(attr1, np.ones(5, ) * 2).to_device()
+        attr2 = Attr2()
+        o2 = Obj1(attr2, np.ones(5, ) * 3).to_device()
+        attr3 = Attr2()
+        o3 = Obj1(attr3, np.ones(5, ) * 6)
+        o1 *= o2
+        assert o1.to_host() == o3
+
+        attr1 = Attr2()
+        o1 = Obj1(attr1, np.ones(5, ) * 2).to_device()
+        attr3 = Attr2()
+        o3 = Obj1(attr3, np.ones(5, ) * 6)
+        o1 *= 3
+        assert o1.to_host() == o3
+
+        attr1 = Attr2()
+        o1 = Obj1(attr1, np.ones(5, ) * 2).to_device()
+        attr2 = Attr2()
+        o2 = Obj1(attr2, np.ones(5, ) * 3).to_device()
+        attr3 = Attr2()
+        o3 = Obj1(attr3, np.ones(5, ) * 6)
+        o1 *= o2.to_host()
+        assert o1.to_host() == o3
+
+    def test_idiv_cuda(self):
+        attr1 = Attr2()
+        o1 = Obj1(attr1, np.ones(5, ) * 2).to_device()
+        attr2 = Attr2()
+        o2 = Obj1(attr2, np.ones(5, ) * 4).to_device()
+        attr3 = Attr2()
+        o3 = Obj1(attr3, np.ones(5, ) * 0.5)
+        o1 /= o2
+        assert o1.to_host() == o3
+
+        attr1 = Attr2()
+        o1 = Obj1(attr1, np.ones(5, ) * 2).to_device()
+        attr3 = Attr2()
+        o3 = Obj1(attr3, np.ones(5, ) * 0.5)
+        o1 /= 4
+        assert o1.to_host() == o3
+
+        attr1 = Attr2()
+        o1 = Obj1(attr1, np.ones(5, ) * 2).to_device()
+        attr2 = Attr2()
+        o2 = Obj1(attr2, np.ones(5, ) * 4).to_device()
+        attr3 = Attr2()
+        o3 = Obj1(attr3, np.ones(5, ) * 0.5)
+        o1 /= o2.to_host()
+        assert o1.to_host() == o3

@@ -275,8 +275,6 @@ def cuda_imul_with_scale_3d(d_array, scale):
 
 
 '''itruediv'''
-
-
 def cuda_itruediv_with_array(d_array, d_other):
     blockdim = (16,) * len(d_array.shape)
     griddim = tuple(x // y + 1 for (x, y) in zip(d_array.shape, blockdim))
@@ -308,9 +306,9 @@ def cuda_itruediv_with_array_2d(d_array, d_other):
     if x >= d_array.shape[0] or y >= d_array.shape[1]:
         return
     if abs(d_other[x, y]) < SMALL:
-        d_array[x] = LARGE
+        d_array[x, y] = LARGE
     else:
-        d_array[x] /= d_array[x, y]
+        d_array[x, y] /= d_array[x, y]
 
 
 @cuda.jit
@@ -321,9 +319,9 @@ def cuda_itruediv_with_array_3d(d_array, d_other):
     if x >= d_array.shape[0] or y >= d_array.shape[1] or z >= d_array.shape[2]:
         return
     if abs(d_other[x, y, z]) < SMALL:
-        d_array[x] = LARGE
+        d_array[x, y, z] = LARGE
     else:
-        d_array[x] /= d_other[x, y, z]
+        d_array[x, y, z] /= d_other[x, y, z]
 
 
 def cuda_itruediv_with_scale(d_array, scale):
@@ -374,37 +372,6 @@ def cuda_itruediv_with_scale_3d(d_array, scale):
     else:
         d_array[x, y, z] /= scale
 
-
-@cuda.jit
-def cuda_itruediv_with_array(d_array, d_other):
-    tx, ty, tz = cuda.threadIdx.x, cuda.threadIdx.y, cuda.threadIdx.z
-    bx, by, bz = cuda.blockIdx.x, cuda.blockIdx.y, cuda.blockIdx.z
-    wx, wy, wz = cuda.blockDim.x, cuda.blockDim.y, cuda.blockDim.z
-    x = tx + bx * wx
-    y = ty + by * wy
-    z = tz + bz * wz
-    if x >= d_array.shape[0] or y >= d_array.shape[1] or z >= d_array.shape[2]:
-        return
-    if abs(d_other[x, y, z]) < SMALL:
-        d_array[x, y, z] = LARGE
-    else:
-        d_array[x, y, z] /= d_other[x, y, z]
-
-
-@cuda.jit
-def cuda_itruediv_with_scale(d_array, scale):
-    tx, ty, tz = cuda.threadIdx.x, cuda.threadIdx.y, cuda.threadIdx.z
-    bx, by, bz = cuda.blockIdx.x, cuda.blockIdx.y, cuda.blockIdx.z
-    wx, wy, wz = cuda.blockDim.x, cuda.blockDim.y, cuda.blockDim.z
-    x = tx + bx * wx
-    y = ty + by * wy
-    z = tz + bz * wz
-    if x >= d_array.shape[0] or y >= d_array.shape[1] or z >= d_array.shape[2]:
-        return
-    if abs(scale) < SMALL:
-        d_array[x, y, z] = LARGE
-    else:
-        d_array[x, y, z] /= scale
 
 
 @cuda.jit
