@@ -24,6 +24,7 @@ from .type_assert import *
 __all__ = ('Attribute', 'ObjectWithAttrData',)
 
 
+
 def _encode_utf8(val):
     if isinstance(val, tuple):
         return tuple([v.encode('utf-8') if isinstance(v, str) else v for v in val])
@@ -132,6 +133,7 @@ class Attribute(object):
 
 
 class ObjectWithAttrData(object):
+
     _attr = None
 
     @arg_type_assert(None, Attribute)
