@@ -1,12 +1,12 @@
 import numpy as np
 
 from ..attr.image_attr import *
-from ..core.abstracts import Object
+from ..core.abstracts import ObjectWithAttrData
 
 __all__ = ('Image', 'Image0D', 'Image1D', 'Image2D', 'Image3D',)
 
 
-class Image(Object):
+class Image(ObjectWithAttrData):
     def __init__(self, attr: ImageAttr, data = None):
         if attr is None:
             raise ValueError
