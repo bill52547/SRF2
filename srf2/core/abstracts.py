@@ -21,7 +21,8 @@ from numpy.core import isscalar
 from .cuda_arithmetics import *
 from .type_assert import *
 
-__all__ = ('Attribute', 'Object',)
+__all__ = ('Attribute', 'ObjectWithAttrData',)
+
 
 
 def _encode_utf8(val):
@@ -131,7 +132,8 @@ class Attribute(object):
         raise NotImplementedError('map method is valid for ', self.__class__, ' object.')
 
 
-class Object(object):
+class ObjectWithAttrData(object):
+
     _attr = None
 
     @arg_type_assert(None, Attribute)
@@ -225,7 +227,7 @@ class Object(object):
 
     @classmethod
     def load_h5(cls, path = None):
-        if cls is Object:
+        if cls is ObjectWithAttrData:
             return NotImplementedError
 
         attr = cls._attr.__class__.load_h5(path)

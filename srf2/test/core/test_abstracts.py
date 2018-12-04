@@ -54,7 +54,7 @@ class Attr2(Attribute):
         return self._shape
 
 
-class Obj1(Object):
+class Obj1(ObjectWithAttrData):
     _attr = Attr2()
 
     def __init__(self, attr = Attr2(), data = np.zeros(5, )):

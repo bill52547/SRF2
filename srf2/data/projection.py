@@ -1,13 +1,13 @@
 import numpy as np
 
 from ..attr.projection_attr import *
-from ..core.abstracts import Object
+from ..core.abstracts import ObjectWithAttrData
 
 __all__ = ('Projection', 'ProjectionFlat', 'ProjectionCurve',
            'ProjectionSeries', 'ProjectionFlatSeries', 'ProjectionCurveSeries',)
 
 
-class Projection(Object):
+class Projection(ObjectWithAttrData):
     def __init__(self, attr: ProjectionAttr, data: np.ndarray = None):
         if attr is None:
             raise ValueError
@@ -66,7 +66,7 @@ class ProjectionFlat(Projection):
         super().__init__(attr, data)
 
 
-class ProjectionSeries(Object):
+class ProjectionSeries(ObjectWithAttrData):
     def __init__(self, attr: ProjectionSeriesAttr, data: np.ndarray = None):
         self._attr = attr
         self._data = data
