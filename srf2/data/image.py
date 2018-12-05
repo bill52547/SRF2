@@ -10,8 +10,7 @@ class Image(ObjectWithAttrData):
     def __init__(self, attr: ImageAttr, data = None):
         if attr is None:
             raise ValueError
-        self._data = data
-        self._attr = attr
+        super().__init__(attr, data)
         if data is not None:
             if not isinstance(data, np.ndarray):
                 raise ValueError
@@ -45,6 +44,26 @@ class Image(ObjectWithAttrData):
         attr = self.attr[item]
         data = self.data[item]
         return self.__class__(attr, data)
+
+    def resample(self, attr = None):
+        from scipy.interpolate import RegularGridInterpolator
+        if attr is None:
+            return None
+        if np.isscalar(attr):
+            rate = attr
+            if rate <= 0:
+                raise ValueError
+            attr = self.attr.copy()
+            attr.shape *= rate
+        if not isinstance(attr, ImageAttr):
+            raise ValueError
+        x = self.attr.linspace(0)
+        y = self.attr.linspace(1)
+        z = self.attr.linspace(2)
+        fn = RegularGridInterpolator((x, y, z), self.data, bounds_error = False, fill_value = 0)
+        pos_x, pos_y, pos_z = attr.unit_centers()
+        pos = list(zip(pos_x.ravel(), pos_y.ravel(), pos_z.ravel()))
+        return self.__class__(attr, fn(pos).reshape(attr.shape))
 
     def squeeze(self):
         attr = self.attr.squeeze()
