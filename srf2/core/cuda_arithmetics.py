@@ -43,7 +43,7 @@ def cuda_iadd_with_array(d_array, d_other):
 
 @cuda.jit
 def cuda_iadd_with_array_1d(d_array, d_other):
-    x = cuda.threadIdx.x + cuda.blockIdx.x * cuda.blockDim.x
+    x = cuda.grid(1)
     if x >= d_array.shape[0]:
         return
     d_array[x] += d_other[x]
@@ -51,8 +51,7 @@ def cuda_iadd_with_array_1d(d_array, d_other):
 
 @cuda.jit
 def cuda_iadd_with_array_2d(d_array, d_other):
-    x = cuda.threadIdx.x + cuda.blockIdx.x * cuda.blockDim.x
-    y = cuda.threadIdx.y + cuda.blockIdx.y * cuda.blockDim.y
+    x, y = cuda.grid(2)
     if x >= d_array.shape[0] or y >= d_array.shape[1]:
         return
     d_array[x, y] += d_other[x, y]
@@ -60,9 +59,7 @@ def cuda_iadd_with_array_2d(d_array, d_other):
 
 @cuda.jit
 def cuda_iadd_with_array_3d(d_array, d_other):
-    x = cuda.threadIdx.x + cuda.blockIdx.x * cuda.blockDim.x
-    y = cuda.threadIdx.y + cuda.blockIdx.y * cuda.blockDim.y
-    z = cuda.threadIdx.z + cuda.blockIdx.z * cuda.blockDim.z
+    x, y, z = cuda.grid(3)
     if x >= d_array.shape[0] or y >= d_array.shape[1] or z >= d_array.shape[2]:
         return
     d_array[x, y, z] += d_other[x, y, z]
@@ -83,7 +80,7 @@ def cuda_iadd_with_scale(d_array, scale):
 
 @cuda.jit
 def cuda_iadd_with_scale_1d(d_array, scale):
-    x = cuda.threadIdx.x + cuda.blockIdx.x * cuda.blockDim.x
+    x = cuda.grid(1)
     if x >= d_array.shape[0]:
         return
     d_array[x] += scale
@@ -91,8 +88,7 @@ def cuda_iadd_with_scale_1d(d_array, scale):
 
 @cuda.jit
 def cuda_iadd_with_scale_2d(d_array, scale):
-    x = cuda.threadIdx.x + cuda.blockIdx.x * cuda.blockDim.x
-    y = cuda.threadIdx.y + cuda.blockIdx.y * cuda.blockDim.y
+    x, y = cuda.grid(2)
     if x >= d_array.shape[0] or y >= d_array.shape[1]:
         return
     d_array[x, y] += scale
@@ -100,9 +96,7 @@ def cuda_iadd_with_scale_2d(d_array, scale):
 
 @cuda.jit
 def cuda_iadd_with_scale_3d(d_array, scale):
-    x = cuda.threadIdx.x + cuda.blockIdx.x * cuda.blockDim.x
-    y = cuda.threadIdx.y + cuda.blockIdx.y * cuda.blockDim.y
-    z = cuda.threadIdx.z + cuda.blockIdx.z * cuda.blockDim.z
+    x, y, z = cuda.grid(3)
     if x >= d_array.shape[0] or y >= d_array.shape[1] or z >= d_array.shape[2]:
         return
     d_array[x, y, z] += scale
@@ -126,7 +120,7 @@ def cuda_isub_with_array(d_array, d_other):
 
 @cuda.jit
 def cuda_isub_with_array_1d(d_array, d_other):
-    x = cuda.threadIdx.x + cuda.blockIdx.x * cuda.blockDim.x
+    x = cuda.grid(1)
     if x >= d_array.shape[0]:
         return
     d_array[x] -= d_other[x]
@@ -134,8 +128,7 @@ def cuda_isub_with_array_1d(d_array, d_other):
 
 @cuda.jit
 def cuda_isub_with_array_2d(d_array, d_other):
-    x = cuda.threadIdx.x + cuda.blockIdx.x * cuda.blockDim.x
-    y = cuda.threadIdx.y + cuda.blockIdx.y * cuda.blockDim.y
+    x, y = cuda.grid(2)
     if x >= d_array.shape[0] or y >= d_array.shape[1]:
         return
     d_array[x, y] -= d_other[x, y]
@@ -143,9 +136,7 @@ def cuda_isub_with_array_2d(d_array, d_other):
 
 @cuda.jit
 def cuda_isub_with_array_3d(d_array, d_other):
-    x = cuda.threadIdx.x + cuda.blockIdx.x * cuda.blockDim.x
-    y = cuda.threadIdx.y + cuda.blockIdx.y * cuda.blockDim.y
-    z = cuda.threadIdx.z + cuda.blockIdx.z * cuda.blockDim.z
+    x, y, z = cuda.grid(3)
     if x >= d_array.shape[0] or y >= d_array.shape[1] or z >= d_array.shape[2]:
         return
     d_array[x, y, z] -= d_other[x, y, z]
@@ -166,7 +157,7 @@ def cuda_isub_with_scale(d_array, scale):
 
 @cuda.jit
 def cuda_isub_with_scale_1d(d_array, scale):
-    x = cuda.threadIdx.x + cuda.blockIdx.x * cuda.blockDim.x
+    x = cuda.grid(1)
     if x >= d_array.shape[0]:
         return
     d_array[x] -= scale
@@ -174,8 +165,7 @@ def cuda_isub_with_scale_1d(d_array, scale):
 
 @cuda.jit
 def cuda_isub_with_scale_2d(d_array, scale):
-    x = cuda.threadIdx.x + cuda.blockIdx.x * cuda.blockDim.x
-    y = cuda.threadIdx.y + cuda.blockIdx.y * cuda.blockDim.y
+    x, y = cuda.grid(2)
     if x >= d_array.shape[0] or y >= d_array.shape[1]:
         return
     d_array[x, y] -= scale
@@ -183,9 +173,7 @@ def cuda_isub_with_scale_2d(d_array, scale):
 
 @cuda.jit
 def cuda_isub_with_scale_3d(d_array, scale):
-    x = cuda.threadIdx.x + cuda.blockIdx.x * cuda.blockDim.x
-    y = cuda.threadIdx.y + cuda.blockIdx.y * cuda.blockDim.y
-    z = cuda.threadIdx.z + cuda.blockIdx.z * cuda.blockDim.z
+    x, y, z = cuda.grid(3)
     if x >= d_array.shape[0] or y >= d_array.shape[1] or z >= d_array.shape[2]:
         return
     d_array[x, y, z] -= scale
@@ -209,7 +197,7 @@ def cuda_imul_with_array(d_array, d_other):
 
 @cuda.jit
 def cuda_imul_with_array_1d(d_array, d_other):
-    x = cuda.threadIdx.x + cuda.blockIdx.x * cuda.blockDim.x
+    x = cuda.grid(1)
     if x >= d_array.shape[0]:
         return
     d_array[x] *= d_other[x]
@@ -217,8 +205,7 @@ def cuda_imul_with_array_1d(d_array, d_other):
 
 @cuda.jit
 def cuda_imul_with_array_2d(d_array, d_other):
-    x = cuda.threadIdx.x + cuda.blockIdx.x * cuda.blockDim.x
-    y = cuda.threadIdx.y + cuda.blockIdx.y * cuda.blockDim.y
+    x, y = cuda.grid(2)
     if x >= d_array.shape[0] or y >= d_array.shape[1]:
         return
     d_array[x, y] *= d_other[x, y]
@@ -226,9 +213,7 @@ def cuda_imul_with_array_2d(d_array, d_other):
 
 @cuda.jit
 def cuda_imul_with_array_3d(d_array, d_other):
-    x = cuda.threadIdx.x + cuda.blockIdx.x * cuda.blockDim.x
-    y = cuda.threadIdx.y + cuda.blockIdx.y * cuda.blockDim.y
-    z = cuda.threadIdx.z + cuda.blockIdx.z * cuda.blockDim.z
+    x, y, z = cuda.grid(3)
     if x >= d_array.shape[0] or y >= d_array.shape[1] or z >= d_array.shape[2]:
         return
     d_array[x, y, z] *= d_other[x, y, z]
@@ -249,7 +234,7 @@ def cuda_imul_with_scale(d_array, scale):
 
 @cuda.jit
 def cuda_imul_with_scale_1d(d_array, scale):
-    x = cuda.threadIdx.x + cuda.blockIdx.x * cuda.blockDim.x
+    x = cuda.grid(1)
     if x >= d_array.shape[0]:
         return
     d_array[x] *= scale
@@ -257,8 +242,7 @@ def cuda_imul_with_scale_1d(d_array, scale):
 
 @cuda.jit
 def cuda_imul_with_scale_2d(d_array, scale):
-    x = cuda.threadIdx.x + cuda.blockIdx.x * cuda.blockDim.x
-    y = cuda.threadIdx.y + cuda.blockIdx.y * cuda.blockDim.y
+    x, y = cuda.grid(2)
     if x >= d_array.shape[0] or y >= d_array.shape[1]:
         return
     d_array[x, y] *= scale
@@ -266,9 +250,7 @@ def cuda_imul_with_scale_2d(d_array, scale):
 
 @cuda.jit
 def cuda_imul_with_scale_3d(d_array, scale):
-    x = cuda.threadIdx.x + cuda.blockIdx.x * cuda.blockDim.x
-    y = cuda.threadIdx.y + cuda.blockIdx.y * cuda.blockDim.y
-    z = cuda.threadIdx.z + cuda.blockIdx.z * cuda.blockDim.z
+    x, y, z = cuda.grid(3)
     if x >= d_array.shape[0] or y >= d_array.shape[1] or z >= d_array.shape[2]:
         return
     d_array[x, y, z] *= scale
@@ -290,7 +272,7 @@ def cuda_itruediv_with_array(d_array, d_other):
 
 @cuda.jit
 def cuda_itruediv_with_array_1d(d_array, d_other):
-    x = cuda.threadIdx.x + cuda.blockIdx.x * cuda.blockDim.x
+    x = cuda.grid(1)
     if x >= d_array.shape[0]:
         return
     if abs(d_other[x]) < SMALL:
@@ -301,8 +283,7 @@ def cuda_itruediv_with_array_1d(d_array, d_other):
 
 @cuda.jit
 def cuda_itruediv_with_array_2d(d_array, d_other):
-    x = cuda.threadIdx.x + cuda.blockIdx.x * cuda.blockDim.x
-    y = cuda.threadIdx.y + cuda.blockIdx.y * cuda.blockDim.y
+    x, y = cuda.grid(2)
     if x >= d_array.shape[0] or y >= d_array.shape[1]:
         return
     if abs(d_other[x, y]) < SMALL:
@@ -313,9 +294,7 @@ def cuda_itruediv_with_array_2d(d_array, d_other):
 
 @cuda.jit
 def cuda_itruediv_with_array_3d(d_array, d_other):
-    x = cuda.threadIdx.x + cuda.blockIdx.x * cuda.blockDim.x
-    y = cuda.threadIdx.y + cuda.blockIdx.y * cuda.blockDim.y
-    z = cuda.threadIdx.z + cuda.blockIdx.z * cuda.blockDim.z
+    x, y, z = cuda.grid(3)
     if x >= d_array.shape[0] or y >= d_array.shape[1] or z >= d_array.shape[2]:
         return
     if abs(d_other[x, y, z]) < SMALL:
@@ -339,7 +318,7 @@ def cuda_itruediv_with_scale(d_array, scale):
 
 @cuda.jit
 def cuda_itruediv_with_scale_1d(d_array, scale):
-    x = cuda.threadIdx.x + cuda.blockIdx.x * cuda.blockDim.x
+    x = cuda.grid(1)
     if x >= d_array.shape[0]:
         return
     if abs(scale) < SMALL:
@@ -350,8 +329,7 @@ def cuda_itruediv_with_scale_1d(d_array, scale):
 
 @cuda.jit
 def cuda_itruediv_with_scale_2d(d_array, scale):
-    x = cuda.threadIdx.x + cuda.blockIdx.x * cuda.blockDim.x
-    y = cuda.threadIdx.y + cuda.blockIdx.y * cuda.blockDim.y
+    x, y = cuda.grid(2)
     if x >= d_array.shape[0] or y >= d_array.shape[1]:
         return
     if abs(scale) < SMALL:
@@ -362,9 +340,7 @@ def cuda_itruediv_with_scale_2d(d_array, scale):
 
 @cuda.jit
 def cuda_itruediv_with_scale_3d(d_array, scale):
-    x = cuda.threadIdx.x + cuda.blockIdx.x * cuda.blockDim.x
-    y = cuda.threadIdx.y + cuda.blockIdx.y * cuda.blockDim.y
-    z = cuda.threadIdx.z + cuda.blockIdx.z * cuda.blockDim.z
+    x, y, z = cuda.grid(3)
     if x >= d_array.shape[0] or y >= d_array.shape[1] or z >= d_array.shape[2]:
         return
     if abs(scale) < SMALL:
