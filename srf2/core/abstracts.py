@@ -386,3 +386,15 @@ class ObjectWithAttrData(object):
         else:
             raise NotImplementedError
         return self
+
+
+# TODO add stream(asynchronous) feature to cuda programs
+'''http://numba.pydata.org/numba-doc/0.13/CUDAJit.html#memory-lifetime
+usage example
+stream = cuda.stream()
+with stream.auto_synchronize():
+    devary = cuda.to_device(an_array, stream=stream)
+    a_cuda_kernel[griddim, blockdim, stream](devary)
+    devary.copy_to_host(an_array, stream=stream)
+# data available in an_array
+'''
