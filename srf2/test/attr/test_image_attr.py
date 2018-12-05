@@ -68,9 +68,9 @@ class Test_ImageAttr:
 
     def test_locate(self):
         shape = (1, 1, 1)
-        assert ImageAttr(shape).locate((0, 0, 0)) == (0, 0, 0)
-        assert ImageAttr(shape).locate((0, 0, 0.5)) == (0, 0, 0.5)
-        assert ImageAttr(shape).locate((-1, 0, 0.5)) == (-1, 0, 0.5)
+        assert ImageAttr(shape).index((0, 0, 0)) == (0, 0, 0)
+        assert ImageAttr(shape).index((0, 0, 0.5)) == (0, 0, 0.5)
+        assert ImageAttr(shape).index((-1, 0, 0.5)) == (-1, 0, 0.5)
 
     def test_transpose(self):
         shape = (1, 2, 3)
@@ -123,7 +123,7 @@ class Test_Image1DAttr:
 
     def test_locate(self):
         attr = Image1DAttr((3,), (1,))
-        assert attr.locate(1.5) == (1.5,)
+        assert attr.index(1.5) == (1.5,)
 
     def test_meshgrid(self):
         attr = Image1DAttr((5,))

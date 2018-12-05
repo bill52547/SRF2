@@ -85,11 +85,23 @@ class ImageAttr(Attribute):
 
     @abstractmethod
     def meshgrid(self):
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def unit_centers(self):
-        pass
+        raise NotImplementedError
+
+    def linspace(self, item = None):
+        if item is None:
+            return None
+        if isinstance(item, str):
+            item = [s for s in item]
+        if isinstance(item, (list, tuple)):
+            return [self.linspace(it) for it in item]
+        if set(item).issubset({'x', 'y', 'z', 't'}):
+            item = self.dims.index(item)
+        return (np.arange(self.shape[item]) - self.shape[item] / 2 + 0.5) * self.unit_size[item] + \
+               self.center[item]
 
     def __getitem__(self, item):
         shape = list(self.shape)
@@ -139,7 +151,7 @@ class ImageAttr(Attribute):
         else:
             raise NotImplementedError
 
-    def locate(self, pos = None):
+    def index(self, pos = None):
         if pos is None:
             return ValueError('No valid input.')
         if np.isscalar(pos):
@@ -193,8 +205,7 @@ class Image1DAttr(ImageAttr):
         return np.arange(self.shape[0])
 
     def unit_centers(self):
-        return self.meshgrid() * self.unit_size[0] + self.center[0] - self.size[0] / 2 + \
-               self.unit_size[0] / 2
+        return self.linspace(0)
 
 
 class Image2DAttr(ImageAttr):
