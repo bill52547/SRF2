@@ -88,15 +88,14 @@ def create_dir_and_file(target, tree):
             result1 += res1
             result2 += res2
         if isinstance(value, str):
-            mknod(os.path.join(target, 'test_' + key))
+            mknod(os.path.join(target, 'tmp_test_' + key))
             result1 += [value]
-            result2 += [os.getcwd() + '/' + os.path.join(target, 'test_' + key)]
+            result2 += [os.getcwd() + '/' + os.path.join(target, 'tmp_test_' + key)]
 
     return result1, result2
 
 
 def read_and_write_file(fin_path, fout_path):
-    # header =
     fin = open(fin_path, 'r')
     list_of_all_the_lines = fin.readlines()
     fin.close()
@@ -116,8 +115,11 @@ def read_and_write_file(fin_path, fout_path):
         if type == 'class':
             fout.writelines('class Test_' + name + ':\n')
         if type == 'def':
-            name = name.replace('_', '')
-            fout.writelines(numspace * '    ' + 'def test_' + name + ':\n')
+            name = name.replace('__', '')
+            if numspace == 0:
+                fout.writelines(numspace * '    ' + 'def test_' + name + '():\n')
+            else:
+                fout.writelines(numspace * '    ' + 'def test_' + name + '(self):\n')
             fout.writelines((numspace + 1) * '    ' + 'pass\n')
             fout.writelines('\n')
 
@@ -131,4 +133,4 @@ def create_unittests(path, target = 'auto_test'):
 
 
 if __name__ == "__main__":
-    create_unittests('.', 'unit_test_templates')
+    create_unittests('.', 'tmp_unit_test_templates')
