@@ -10,10 +10,9 @@
 @desc: new version of Scalable Reconstruction Framework for Medical Imaging
 '''
 
-from abc import abstractmethod
-
 import h5py
 import numpy as np
+from abc import abstractmethod
 from numba import cuda
 from numba.cuda.cudadrv.devicearray import DeviceNDArray as DeviceNDArray
 from numpy.core import isscalar
@@ -126,26 +125,124 @@ class Attribute(object):
         raise NotImplementedError('map method is valid for ', self.__class__, ' object.')
 
 
+class AttributeWithShape(object):
+    ''' An base attibute class.
+    A attribute is an object who consist the attribute to describe another object. More specific, a
+    attribute object only contains small descriptions, which can only be a tuple or a value/string (
+    <64k) and can be stored in a hdf5 attibute.
+    '''
+    __device_manager__ = 'host'
+    _shape = None
+
+    def __new__(cls, *args, **kwargs):
+
+    def __init__(self, shape=None):
+        if shape is None:
+            raise ValueError
+        self._shape = shape
+
+    def __eq__(self, other):
+        '''**Equality verify**
+        :param other:
+        :return: bool
+        '''
+        if not isinstance(other, self.__class__):
+            return False
+        for key, value in self.__dict__.items():
+            if value != other.__getattribute__(key):
+                return False
+        else:
+            return True
+
+    def copy(self):
+        dict_attrs = {}
+        for key, value in self.__dict__.items():
+            if key.startswith('__'):
+                continue
+            if key.startswith('_'):
+                key1 = key[1:]
+            else:
+                key1 = key
+            dict_attrs[key1] = _decode_utf8(value)
+        attr = self.__class__(**dict_attrs)
+        attr.__device_manager__ = self.__device_manager__
+        return attr
+
+    def save_h5(self, path=None, mode='w'):
+        '''**save to hdf5 file**
+        save a attribute object to hdf5 file, in term of hdf5 group/attrs. It is saved in a group
+        with name of this class.
+        :param path: should be end with '.h5' or 'hdf5'
+        :param mode: 'w' by default.
+        :return: None
+        '''
+
+        if path is None:
+            path = 'tmp' + self.__class__.__name__ + '.h5'
+
+        if not str.endswith(path, 'h5') and not str.endswith(path, 'hdf5'):
+            raise ValueError(self.__class__.save_h5.__qualname__,
+                             ' should have path input ends with h5 or hdf5')
+        with h5py.File(path, mode) as fout:
+            group = fout.create_group(self.__class__.__name__)
+            for key, value in self.__dict__.items():
+                if key.startswith('__'):
+                    continue
+                if key.startswith('_'):
+                    key1 = key[1:]
+                else:
+                    key1 = key
+                group.attrs.create(key1, data=_encode_utf8(value))
+
+    @classmethod
+    def load_h5(cls, path=None):
+        if cls is Attribute:
+            return NotImplementedError
+
+        if path is None:
+            path = 'tmp' + cls.__name__ + '.h5'
+        with h5py.File(path, 'r') as fin:
+            group = fin[cls.__name__]
+            dict_attrs = {}
+            for key, value in group.attrs.items():
+                dict_attrs[key] = _decode_utf8(value)
+            return cls(**dict_attrs)
+
+    def __repr__(self):
+        out_str = f'{type(self)} object at {hex(id(self))}\n'
+        for key in self.__dict__.keys():
+            out_str += f'{key}: {type(self.__dict__[key])} = {self.__dict__[key]}\n'
+        return out_str
+
+    __str__ = __repr__
+
+    @abstractmethod
+    def map(self, _):
+        raise NotImplementedError('map method is valid for ', self.__class__, ' object.')
+
+
 class ObjectWithAttrData(object):
     _attr = None
     __device_manager__ = 'host'
 
     @arg_type_assert(None, Attribute)
     def __init__(self, attr, data = None):
+        if attr is None:
+            raise ValueError
         self._attr = attr
-        self._data = data
-        if isinstance(self._data, np.ndarray):
+        if data is not None:
+            assert isinstance(data, (np.ndarray, DeviceNDArray))
+            assert data.shape == attr.shape
+        self.data = data
+
+        if isinstance(self.data, np.ndarray):
             self.__device_manager__ = 'host'
-        elif isinstance(self._data, DeviceNDArray):
+        elif isinstance(self.data, DeviceNDArray):
             self.__device_manager__ = 'gpu'
 
     @property
     def attr(self):
         return self._attr
-
-    @property
-    def data(self):
-        return self._data
 
     def copy(self):
         if self.__device_manager__ == 'gpu':
@@ -164,7 +261,7 @@ class ObjectWithAttrData(object):
         elif self.__device_manager__ == 'host':
             if stream is None:
                 stream = cuda.stream()
-            self._data = cuda.to_device(self.data, stream)
+            self.data = cuda.to_device(self.data, stream)
             self.__device_manager__ = 'gpu'
             return self
         else:
@@ -176,7 +273,7 @@ class ObjectWithAttrData(object):
         elif self.__device_manager__ == 'gpu':
             if stream is None:
                 stream = cuda.stream()
-            self._data = self.data.copy_to_host(stream = stream)
+            self.data = self.data.copy_to_host(stream=stream)
             self.__device_manager__ = 'host'
             return self
         else:
@@ -298,20 +395,20 @@ class ObjectWithAttrData(object):
     def __iadd__(self, other):
         if self.__device_manager__ == 'host':
             if isscalar(other) or isinstance(other, np.ndarray):
-                self._data += other
+                self.data += other
             elif isinstance(other, self.__class__):
-                self._data += other.to_host().data
+                self.data += other.to_host().data
             else:
                 raise NotImplementedError
         elif self.__device_manager__ == 'gpu':
             if isinstance(other, self.__class__):
-                cuda_iadd_with_array(self._data, other.to_device().data)
+                cuda_iadd_with_array(self.data, other.to_device().data)
             elif isinstance(other, DeviceNDArray):
-                cuda_iadd_with_array(self._data, other)
+                cuda_iadd_with_array(self.data, other)
             elif isinstance(other, np.ndarray):
-                cuda_iadd_with_array(self._data, cuda.to_device(other))
+                cuda_iadd_with_array(self.data, cuda.to_device(other))
             elif isscalar(other):
-                cuda_iadd_with_scale(self._data, other)
+                cuda_iadd_with_scale(self.data, other)
             else:
                 raise NotImplementedError
         else:
@@ -321,20 +418,20 @@ class ObjectWithAttrData(object):
     def __isub__(self, other):
         if self.__device_manager__ == 'host':
             if isscalar(other) or isinstance(other, np.ndarray):
-                self._data -= other
+                self.data -= other
             elif isinstance(other, self.__class__):
-                self._data -= other.to_host().data
+                self.data -= other.to_host().data
             else:
                 raise NotImplementedError
         elif self.__device_manager__ == 'gpu':
             if isinstance(other, self.__class__):
-                cuda_isub_with_array(self._data, other.to_device().data)
+                cuda_isub_with_array(self.data, other.to_device().data)
             elif isinstance(other, DeviceNDArray):
-                cuda_isub_with_array(self._data, other)
+                cuda_isub_with_array(self.data, other)
             elif isinstance(other, np.ndarray):
-                cuda_isub_with_array(self._data, cuda.to_device(other))
+                cuda_isub_with_array(self.data, cuda.to_device(other))
             elif isscalar(other):
-                cuda_isub_with_scale(self._data, other)
+                cuda_isub_with_scale(self.data, other)
             else:
                 raise NotImplementedError
         else:
@@ -344,20 +441,20 @@ class ObjectWithAttrData(object):
     def __imul__(self, other):
         if self.__device_manager__ == 'host':
             if isscalar(other) or isinstance(other, np.ndarray):
-                self._data *= other
+                self.data *= other
             elif isinstance(other, self.__class__):
-                self._data *= other.to_host().data
+                self.data *= other.to_host().data
             else:
                 raise NotImplementedError
         elif self.__device_manager__ == 'gpu':
             if isinstance(other, self.__class__):
-                cuda_imul_with_array(self._data, other.to_device().data)
+                cuda_imul_with_array(self.data, other.to_device().data)
             elif isinstance(other, DeviceNDArray):
-                cuda_imul_with_array(self._data, other)
+                cuda_imul_with_array(self.data, other)
             elif isinstance(other, np.ndarray):
-                cuda_imul_with_array(self._data, cuda.to_device(other))
+                cuda_imul_with_array(self.data, cuda.to_device(other))
             elif isscalar(other):
-                cuda_imul_with_scale(self._data, other)
+                cuda_imul_with_scale(self.data, other)
             else:
                 raise NotImplementedError
         else:
@@ -367,20 +464,20 @@ class ObjectWithAttrData(object):
     def __itruediv__(self, other):
         if self.__device_manager__ == 'host':
             if isscalar(other) or isinstance(other, np.ndarray):
-                self._data /= other
+                self.data /= other
             elif isinstance(other, self.__class__):
-                self._data /= other.to_host().data
+                self.data /= other.to_host().data
             else:
                 raise NotImplementedError
         elif self.__device_manager__ == 'gpu':
             if isinstance(other, self.__class__):
-                cuda_itruediv_with_array(self._data, other.to_device().data)
+                cuda_itruediv_with_array(self.data, other.to_device().data)
             elif isinstance(other, DeviceNDArray):
-                cuda_itruediv_with_array(self._data, other)
+                cuda_itruediv_with_array(self.data, other)
             elif isinstance(other, np.ndarray):
-                cuda_itruediv_with_array(self._data, cuda.to_device(other))
+                cuda_itruediv_with_array(self.data, cuda.to_device(other))
             elif isscalar(other):
-                cuda_itruediv_with_scale(self._data, other)
+                cuda_itruediv_with_scale(self.data, other)
             else:
                 raise NotImplementedError
         else:

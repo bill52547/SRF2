@@ -10,9 +10,8 @@
 @desc: new version of Scalable Reconstruction Framework for Medical Imaging
 '''
 
-from abc import abstractmethod
-
 import numpy as np
+from abc import abstractmethod
 
 from srf2.core.abstracts import Attribute
 
@@ -233,6 +232,10 @@ class ProjectionAttr(Attribute):
             raise NotImplementedError
 
     @property
+    def shape(self):
+        return self.detector_attr.shape
+
+    @property
     def source_to_detector(self):
         return self._source_to_detector
 
@@ -374,6 +377,10 @@ class ProjectionSeriesAttr(Attribute):
             self._detector_attr = Detector2DAttr(*detector_attr.__dict__.values())
         else:
             raise NotImplementedError
+
+    @property
+    def shape(self):
+        return self.detector_attr.shape + (len(self.angles),)
 
     @property
     def source_to_detector(self):

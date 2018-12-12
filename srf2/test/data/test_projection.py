@@ -22,7 +22,7 @@ class Test_Projection:
         d = DetectorAttr(**param)
         p = ProjectionAttr(200, 100, 0, d)
         assert not Projection(p)
-        Projection(p, np.zeros(1, ))
+        Projection(p, np.zeros((1, 1)))
 
     def test_property(self):
         pass

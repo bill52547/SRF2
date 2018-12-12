@@ -14,7 +14,7 @@ class Image(ObjectWithAttrData):
         if data is not None:
             if not isinstance(data, np.ndarray):
                 raise ValueError
-            self._data.astype(np.float32)
+            self.data.astype(np.float32)
 
     def __bool__(self):
         return False if self.data is None else True
