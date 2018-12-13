@@ -3,12 +3,12 @@ from functools import reduce
 
 import numpy as np
 
-from srf2.core.abstracts import Attribute
+from srf2.core.abstracts import AttributeWithShape
 
 __all__ = ('ImageAttr', 'Image0DAttr', 'Image1DAttr', 'Image2DAttr', 'Image3DAttr', 'Image4DAttr',)
 
 
-class ImageAttr(Attribute):
+class ImageAttr(AttributeWithShape):
     def __init__(self, shape = None, center = None, size = None, dims = None):
         self._shape = tuple(shape) if shape is not None else tuple([])
         self._center = tuple(center) if center is not None else tuple([0 for _ in self._shape])

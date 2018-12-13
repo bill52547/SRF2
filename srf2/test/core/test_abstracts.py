@@ -3,15 +3,7 @@ import numpy as np
 from srf2.core.abstracts import *
 
 
-def test_encodeutf8():
-    pass
-
-
-def test_decodeutf8():
-    pass
-
-
-class Attr(Attribute):
+class Attr(AttributeWithShape):
     def __init__(self, str1 = None, str2 = None, num1 = None, num2 = None):
         if not str1:
             self.str1 = 'abc'
@@ -38,9 +30,6 @@ class Test_Attribute:
         obj2 = Attr('abc', ('x', 'y', 'z'), 123456, (1, 2, 3))
         assert obj1 == obj2
 
-    def test_copy(self):
-        pass
-
     def test_io(self):
         path = 'tmp.h5'
         obj = Attr()
@@ -51,15 +40,12 @@ class Test_Attribute:
         obj2 = Attr.load_h5()
         assert obj == obj2
 
-    def test_repr(self):
+    def test_print(self):
         obj = Attr()
         print(obj)
 
-    def test_map(self):
-        pass
 
-
-class Attr2(Attribute):
+class Attr2(AttributeWithShape):
     def __init__(self, shape = (5,)):
         self._shape = shape
 
