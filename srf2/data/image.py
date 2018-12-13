@@ -7,7 +7,7 @@ __all__ = ('Image', 'Image0D', 'Image1D', 'Image2D', 'Image3D',)
 
 
 class Image(ObjectWithAttrData):
-    def __init__(self, attr: ImageAttr, data = None):
+    def __init__(self, attr: ImageAttr, data=None):
         if attr is None:
             raise ValueError
         super().__init__(attr, data)
@@ -22,7 +22,7 @@ class Image(ObjectWithAttrData):
     def map(self, f):
         return self.__class__(*f(self.attr, self.data))
 
-    def transpose(self, perm = None):
+    def transpose(self, perm=None):
         if perm is None:
             perm = np.arange(self.attr.ndim)[::-1]
         if set(perm).issubset({'x', 'y', 'z'}):
@@ -45,7 +45,7 @@ class Image(ObjectWithAttrData):
         data = self.data[item]
         return self.__class__(attr, data)
 
-    def resample(self, attr = None):
+    def resample(self, attr=None):
         from scipy.interpolate import RegularGridInterpolator
         if attr is None:
             return None
@@ -60,7 +60,7 @@ class Image(ObjectWithAttrData):
         x = self.attr.linspace(0)
         y = self.attr.linspace(1)
         z = self.attr.linspace(2)
-        fn = RegularGridInterpolator((x, y, z), self.data, bounds_error = False, fill_value = 0)
+        fn = RegularGridInterpolator((x, y, z), self.data, bounds_error=False, fill_value=0)
         pos_x, pos_y, pos_z = attr.unit_centers()
         pos = list(zip(pos_x.ravel(), pos_y.ravel(), pos_z.ravel()))
         return self.__class__(attr, fn(pos).reshape(attr.shape))
@@ -81,28 +81,28 @@ class Image(ObjectWithAttrData):
 
 
 class Image0D(Image):
-    def __init__(self, attr: Image0DAttr = None, data = None):
+    def __init__(self, attr: Image0DAttr = None, data=None):
         super().__init__(attr, data)
         if self.attr.ndim != 0:
             raise ValueError(self.__class__.__name__, ' is only consistent with 0D case')
 
 
 class Image1D(Image):
-    def __init__(self, attr: Image1DAttr = None, data = None):
+    def __init__(self, attr: Image1DAttr = None, data=None):
         super().__init__(attr, data)
         if self.attr.ndim != 1:
             raise ValueError(self.__class__.__name__, ' is only consistent with 1D case')
 
 
 class Image2D(Image):
-    def __init__(self, attr: Image2DAttr = None, data = None):
+    def __init__(self, attr: Image2DAttr = None, data=None):
         super().__init__(attr, data)
         if self.attr.ndim != 2:
             raise ValueError(self.__class__.__name__, ' is only consistent with 2D case')
 
 
 class Image3D(Image):
-    def __init__(self, attr: Image3DAttr = None, data = None):
+    def __init__(self, attr: Image3DAttr = None, data=None):
         super().__init__(attr, data)
         if self.attr.ndim != 3:
             raise ValueError(self.__class__.__name__, ' is only consistent with 3D case')
