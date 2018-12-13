@@ -9,14 +9,7 @@ __all__ = ('Projection', 'ProjectionFlat', 'ProjectionCurve',
 
 class Projection(ObjectWithAttrData):
     def __init__(self, attr: ProjectionAttr, data: np.ndarray = None):
-        if attr is None:
-            raise ValueError
-        self._attr = attr
-        self._data = data
-        if data is not None:
-            if not isinstance(data, np.ndarray):
-                raise ValueError
-            self._data.astype(np.float32)
+        super().__init__(attr, data)
 
     def __bool__(self):
         return False if self.data is None else True

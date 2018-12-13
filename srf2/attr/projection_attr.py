@@ -22,8 +22,8 @@ __all__ = ('DetectorAttr', 'Detector1DAttr', 'Detector2DAttr',
 
 
 class DetectorAttr(AttributeWithShape):
-    def __init__(self, shape = None, center = None, size = None, dims = None):
-        self._shape = tuple(shape) if shape is not None else tuple([])
+    def __init__(self, shape=None, center=None, size=None, dims=None):
+        super().__init__(shape)
         self._center = tuple(center) if center is not None else tuple([0 for _ in self._shape])
         self._size = tuple(size) if size is not None else tuple([k for k in self._shape])
         self._dims = tuple(dims) if dims is not None else ('u', 'v')[:len(self._shape)]
@@ -114,7 +114,7 @@ class DetectorAttr(AttributeWithShape):
 
         return self.__class__(shape, center, size, dims)
 
-    def locate(self, pos = None):
+    def locate(self, pos=None):
         if pos is None:
             return ValueError('No valid input.')
         if np.isscalar(pos):
@@ -126,7 +126,7 @@ class DetectorAttr(AttributeWithShape):
             result[k] = (pos[k] - self.center[k] + self.size[k] / 2) / self.unit_size[k] - 0.5
         return tuple(result)
 
-    def transpose(self, perm = None):
+    def transpose(self, perm=None):
         if perm is None:
             perm = np.arange(self.ndim)[::-1]
         if set(perm).issubset({'u', 'v'}):
@@ -159,7 +159,7 @@ class DetectorAttr(AttributeWithShape):
 
 
 class Detector0DAttr(DetectorAttr):
-    def __init__(self, shape = None, center = None, size = None, dims = None):
+    def __init__(self, shape=None, center=None, size=None, dims=None):
         if shape is None:
             shape = tuple([])
         super().__init__(shape, center, size, dims)
@@ -174,7 +174,7 @@ class Detector0DAttr(DetectorAttr):
 
 
 class Detector1DAttr(DetectorAttr):
-    def __init__(self, shape = None, center = None, size = None, dims = None):
+    def __init__(self, shape=None, center=None, size=None, dims=None):
         if shape is None:
             shape = (1,)
         super().__init__(shape, center, size, dims)
@@ -193,7 +193,7 @@ class Detector1DAttr(DetectorAttr):
 
 
 class Detector2DAttr(DetectorAttr):
-    def __init__(self, shape = None, center = None, size = None, dims = None):
+    def __init__(self, shape=None, center=None, size=None, dims=None):
         if shape is None:
             shape = (1, 1)
         super().__init__(shape, center, size, dims)
@@ -231,6 +231,10 @@ class ProjectionAttr(AttributeWithShape):
             self._detector_attr = Detector2DAttr(*detector_attr.__dict__.values())
         else:
             raise NotImplementedError
+
+    @property
+    def shape(self):
+        return self.detector_attr.shape
 
     @property
     def source_to_detector(self):
@@ -364,7 +368,7 @@ class ProjectionSeriesAttr(AttributeWithShape):
             raise ValueError
         self._source_to_detector = np.float32(source_to_detector)
         self._source_to_image = np.float32(source_to_image)
-        self._angles = np.array(angles, dtype = np.float32)
+        self._angles = np.array(angles, dtype=np.float32)
 
         if detector_attr.ndim == 0:
             self._detector_attr = Detector0DAttr(*detector_attr.__dict__.values())
@@ -374,6 +378,10 @@ class ProjectionSeriesAttr(AttributeWithShape):
             self._detector_attr = Detector2DAttr(*detector_attr.__dict__.values())
         else:
             raise NotImplementedError
+
+    @property
+    def shape(self):
+        return self.detector_attr.shape + (len(self.angles),)
 
     @property
     def source_to_detector(self):

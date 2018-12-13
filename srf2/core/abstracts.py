@@ -129,25 +129,29 @@ class Attribute(object):
 class AttributeWithShape(Attribute):
     _shape = None
 
-    @arg_type_assert(None, tuple)
     def __init__(self, shape=None):
         if shape is None:
             raise ValueError
-        self._shape = shape
+        self._shape = tuple(shape)
 
     @property
     def shape(self):
         return self._shape
+
+    def map(self, _):
+        raise NotImplementedError('map method is valid for ', self.__class__, ' object.')
 
 
 class ObjectWithAttrData(object):
     _attr = None
     __device_manager__ = 'host'
 
-    @arg_type_assert(None, AttributeWithShape)
+    @arg_type_assert(None, Attribute)
     def __init__(self, attr, data=None):
+        if attr is None:
+            raise ValueError
         self._attr = attr
-        self._data = data if data is not None else np.zeros(attr.shape)
+        self._data = data
         if isinstance(self._data, np.ndarray):
             self.__device_manager__ = 'host'
         elif isinstance(self._data, DeviceNDArray):

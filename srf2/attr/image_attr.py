@@ -9,19 +9,15 @@ __all__ = ('ImageAttr', 'Image0DAttr', 'Image1DAttr', 'Image2DAttr', 'Image3DAtt
 
 
 class ImageAttr(AttributeWithShape):
-    def __init__(self, shape = None, center = None, size = None, dims = None):
-        self._shape = tuple(shape) if shape is not None else tuple([])
-        self._center = tuple(center) if center is not None else tuple([0 for _ in self._shape])
-        self._size = tuple(size) if size is not None else tuple([k for k in self._shape])
-        self._dims = tuple(dims) if dims is not None else ('x', 'y', 'z', 't')[:len(self._shape)]
-        if not (len(self._shape) == len(self._center) == len(self._size) == len(self._dims)):
+    def __init__(self, shape=None, center=None, size=None, dims=None):
+        super().__init__(shape)
+        self._center = tuple(center) if center is not None else tuple([0 for _ in shape])
+        self._size = tuple(size) if size is not None else tuple([k for k in shape])
+        self._dims = tuple(dims) if dims is not None else ('x', 'y', 'z', 't')[:len(shape)]
+        if not (len(self._shape) == len(self._center) == len(self._size) == len(shape)):
             raise ValueError(self.__dict__, ' should have same lengths')
-        if len(self._shape) < 0 or len(self._shape) > 4:
+        if len(shape) < 0 or len(shape) > 4:
             raise NotImplemented
-
-    @property
-    def shape(self):
-        return self._shape
 
     @property
     def center(self):
@@ -71,7 +67,7 @@ class ImageAttr(AttributeWithShape):
         else:
             return 1
 
-    def numel(self, dims = None):
+    def numel(self, dims=None):
         if dims is None:
             dims = self.dims
         if dims is str:
@@ -85,11 +81,23 @@ class ImageAttr(AttributeWithShape):
 
     @abstractmethod
     def meshgrid(self):
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def unit_centers(self):
-        pass
+        raise NotImplementedError
+
+    def linspace(self, item=None):
+        if item is None:
+            return None
+        if isinstance(item, str):
+            item = [s for s in item]
+        if isinstance(item, (list, tuple)):
+            return [self.linspace(it) for it in item]
+        if set(item).issubset({'x', 'y', 'z', 't'}):
+            item = self.dims.index(item)
+        return (np.arange(self.shape[item]) - self.shape[item] / 2 + 0.5) * self.unit_size[item] + \
+               self.center[item]
 
     def __getitem__(self, item):
         shape = list(self.shape)
@@ -139,7 +147,7 @@ class ImageAttr(AttributeWithShape):
         else:
             raise NotImplementedError
 
-    def locate(self, pos = None):
+    def index(self, pos=None):
         if pos is None:
             return ValueError('No valid input.')
         if np.isscalar(pos):
@@ -149,7 +157,7 @@ class ImageAttr(AttributeWithShape):
             result[k] = (pos[k] - self.center[k] + self.size[k] / 2) / self.unit_size[k] - 0.5
         return tuple(result)
 
-    def transpose(self, perm = None):
+    def transpose(self, perm=None):
         if perm is None:
             perm = np.arange(self.ndim)[::-1]
         if set(perm).issubset({'x', 'y', 'z'}):
@@ -166,7 +174,7 @@ class ImageAttr(AttributeWithShape):
 
 
 class Image0DAttr(ImageAttr):
-    def __init__(self, shape = None, center = None, size = None, dims = None):
+    def __init__(self, shape=None, center=None, size=None, dims=None):
         if shape is None:
             shape = tuple([])
         super().__init__(shape, center, size, dims)
@@ -181,7 +189,7 @@ class Image0DAttr(ImageAttr):
 
 
 class Image1DAttr(ImageAttr):
-    def __init__(self, shape = None, center = None, size = None, dims = None):
+    def __init__(self, shape=None, center=None, size=None, dims=None):
         if shape is None:
             shape = (1,)
 
@@ -193,19 +201,18 @@ class Image1DAttr(ImageAttr):
         return np.arange(self.shape[0])
 
     def unit_centers(self):
-        return self.meshgrid() * self.unit_size[0] + self.center[0] - self.size[0] / 2 + \
-               self.unit_size[0] / 2
+        return self.linspace(0)
 
 
 class Image2DAttr(ImageAttr):
-    def __init__(self, shape = None, center = None, size = None, dims = None):
+    def __init__(self, shape=None, center=None, size=None, dims=None):
         if shape is None:
             shape = (1, 1)
         super().__init__(shape, center, size, dims)
         if len(self.shape) != 2:
             raise ValueError(self.__class__, ' is only consistent with 2D case')
 
-    def meshgrid(self, slice = None):
+    def meshgrid(self, slice=None):
         x = np.arange(self.shape[0])
         y = np.arange(self.shape[1])
         y1, x1 = np.meshgrid(y, x)
@@ -219,7 +226,7 @@ class Image2DAttr(ImageAttr):
 
 
 class Image3DAttr(ImageAttr):
-    def __init__(self, shape = None, center = None, size = None, dims = None):
+    def __init__(self, shape=None, center=None, size=None, dims=None):
         if shape is None:
             shape = (1, 1, 1)
         super().__init__(shape, center, size, dims)
@@ -242,7 +249,7 @@ class Image3DAttr(ImageAttr):
 
 
 class Image4DAttr(ImageAttr):
-    def __init__(self, shape = None, center = None, size = None, dims = None):
+    def __init__(self, shape=None, center=None, size=None, dims=None):
         if shape is None:
             shape = (1, 1, 1, 1)
         super().__init__(shape, center, size, dims)
