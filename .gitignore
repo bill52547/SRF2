@@ -111,3 +111,7 @@ tmp
 
 # temporal files
 tmp*
+
+# xml files
+*.xml
+*.iml
