@@ -3,7 +3,7 @@ import numpy as np
 from srf2.core.abstracts import *
 
 
-class Attr(Attribute):
+class Attr(AttributeWithShape):
     def __init__(self, str1 = None, str2 = None, num1 = None, num2 = None):
         if not str1:
             self.str1 = 'abc'
@@ -45,7 +45,7 @@ class Test_Attribute:
         print(obj)
 
 
-class Attr2(Attribute):
+class Attr2(AttributeWithShape):
     def __init__(self, shape = (5,)):
         self._shape = shape
 

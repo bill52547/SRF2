@@ -14,14 +14,14 @@ from abc import abstractmethod
 
 import numpy as np
 
-from srf2.core.abstracts import Attribute
+from srf2.core.abstracts import AttributeWithShape
 
 __all__ = ('DetectorAttr', 'Detector1DAttr', 'Detector2DAttr',
            'ProjectionAttr', 'ProjectionFlatAttr', 'ProjectionCurveAttr',
            'ProjectionSeriesAttr', 'ProjectionFlatSeriesAttr', 'ProjectionCurveSeriesAttr',)
 
 
-class DetectorAttr(Attribute):
+class DetectorAttr(AttributeWithShape):
     def __init__(self, shape = None, center = None, size = None, dims = None):
         self._shape = tuple(shape) if shape is not None else tuple([])
         self._center = tuple(center) if center is not None else tuple([0 for _ in self._shape])
@@ -216,7 +216,7 @@ class Detector2DAttr(DetectorAttr):
         return pos_x, pos_y
 
 
-class ProjectionAttr(Attribute):
+class ProjectionAttr(AttributeWithShape):
     def __init__(self, source_to_detector, source_to_image, angle, detector_attr: DetectorAttr):
         if source_to_detector < source_to_image:
             raise ValueError
@@ -358,7 +358,7 @@ class ProjectionCurveAttr(ProjectionAttr):
             raise None
 
 
-class ProjectionSeriesAttr(Attribute):
+class ProjectionSeriesAttr(AttributeWithShape):
     def __init__(self, source_to_detector, source_to_image, angles, detector_attr: DetectorAttr):
         if source_to_detector < source_to_image:
             raise ValueError
