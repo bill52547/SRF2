@@ -26,11 +26,11 @@ def cuda_iadd_with_array(d_array, d_other, stream=0):
     blockdim = (BLOCK_DIM,) * d_array.ndim
     griddim = tuple((x - 1) // BLOCK_DIM + 1 for x in d_array.shape)
     if d_array.ndim == 1:
-        kernel_iadd_with_array_1d[griddim, blockdim](d_array, d_other)
+        kernel_iadd_with_array_1d[griddim, blockdim, stream](d_array, d_other)
     elif d_array.ndim == 2:
-        kernel_iadd_with_array_2d[griddim, blockdim](d_array, d_other)
+        kernel_iadd_with_array_2d[griddim, blockdim, stream](d_array, d_other)
     elif d_array.ndim == 3:
-        kernel_iadd_with_array_3d[griddim, blockdim](d_array, d_other)
+        kernel_iadd_with_array_3d[griddim, blockdim, stream](d_array, d_other)
     else:
         raise NotImplementedError
 
@@ -63,11 +63,11 @@ def cuda_iadd_with_scale(d_array, scale, stream=0):
     blockdim = (BLOCK_DIM,) * d_array.ndim
     griddim = tuple((x - 1) // BLOCK_DIM + 1 for x in d_array.shape)
     if d_array.ndim == 1:
-        kernel_iadd_with_scale_1d[griddim, blockdim](d_array, scale)
+        kernel_iadd_with_scale_1d[griddim, blockdim, stream](d_array, scale)
     elif d_array.ndim == 2:
-        kernel_iadd_with_scale_2d[griddim, blockdim](d_array, scale)
+        kernel_iadd_with_scale_2d[griddim, blockdim, stream](d_array, scale)
     elif d_array.ndim == 3:
-        kernel_iadd_with_scale_3d[griddim, blockdim](d_array, scale)
+        kernel_iadd_with_scale_3d[griddim, blockdim, stream](d_array, scale)
     else:
         raise NotImplementedError
 
@@ -100,11 +100,11 @@ def cuda_isub_with_array(d_array, d_other, stream=0):
     blockdim = (BLOCK_DIM,) * d_array.ndim
     griddim = tuple((x - 1) // BLOCK_DIM + 1 for x in d_array.shape)
     if d_array.ndim == 1:
-        kernel_isub_with_array_1d[griddim, blockdim](d_array, d_other)
+        kernel_isub_with_array_1d[griddim, blockdim, stream](d_array, d_other)
     elif d_array.ndim == 2:
-        kernel_isub_with_array_2d[griddim, blockdim](d_array, d_other)
+        kernel_isub_with_array_2d[griddim, blockdim, stream](d_array, d_other)
     elif d_array.ndim == 3:
-        kernel_isub_with_array_3d[griddim, blockdim](d_array, d_other)
+        kernel_isub_with_array_3d[griddim, blockdim, stream](d_array, d_other)
     else:
         raise NotImplementedError
 
@@ -137,11 +137,11 @@ def cuda_isub_with_scale(d_array, scale, stream=0):
     blockdim = (BLOCK_DIM,) * d_array.ndim
     griddim = tuple((x - 1) // BLOCK_DIM + 1 for x in d_array.shape)
     if d_array.ndim == 1:
-        kernel_isub_with_scale_1d[griddim, blockdim](d_array, scale)
+        kernel_isub_with_scale_1d[griddim, blockdim, stream](d_array, scale)
     elif d_array.ndim == 2:
-        kernel_isub_with_scale_2d[griddim, blockdim](d_array, scale)
+        kernel_isub_with_scale_2d[griddim, blockdim, stream](d_array, scale)
     elif d_array.ndim == 3:
-        kernel_isub_with_scale_3d[griddim, blockdim](d_array, scale)
+        kernel_isub_with_scale_3d[griddim, blockdim, stream](d_array, scale)
     else:
         raise NotImplementedError
 
@@ -175,11 +175,11 @@ def cuda_imul_with_array(d_array, d_other, stream=0):
     blockdim = (BLOCK_DIM,) * d_array.ndim
     griddim = tuple((x - 1) // BLOCK_DIM + 1 for x in d_array.shape)
     if d_array.ndim == 1:
-        kernel_imul_with_array_1d[griddim, blockdim](d_array, d_other)
+        kernel_imul_with_array_1d[griddim, blockdim, stream](d_array, d_other)
     elif d_array.ndim == 2:
-        kernel_imul_with_array_2d[griddim, blockdim](d_array, d_other)
+        kernel_imul_with_array_2d[griddim, blockdim, stream](d_array, d_other)
     elif d_array.ndim == 3:
-        kernel_imul_with_array_3d[griddim, blockdim](d_array, d_other)
+        kernel_imul_with_array_3d[griddim, blockdim, stream](d_array, d_other)
     else:
         raise NotImplementedError
 
@@ -212,11 +212,11 @@ def cuda_imul_with_scale(d_array, scale, stream=0):
     blockdim = (BLOCK_DIM,) * d_array.ndim
     griddim = tuple((x - 1) // BLOCK_DIM + 1 for x in d_array.shape)
     if d_array.ndim == 1:
-        kernel_imul_with_scale_1d[griddim, blockdim](d_array, scale)
+        kernel_imul_with_scale_1d[griddim, blockdim, stream](d_array, scale)
     elif d_array.ndim == 2:
-        kernel_imul_with_scale_2d[griddim, blockdim](d_array, scale)
+        kernel_imul_with_scale_2d[griddim, blockdim, stream](d_array, scale)
     elif d_array.ndim == 3:
-        kernel_imul_with_scale_3d[griddim, blockdim](d_array, scale)
+        kernel_imul_with_scale_3d[griddim, blockdim, stream](d_array, scale)
     else:
         raise NotImplementedError
 
@@ -250,11 +250,11 @@ def cuda_itruediv_with_array(d_array, d_other, stream=0):
     blockdim = (BLOCK_DIM,) * d_array.ndim
     griddim = tuple((x - 1) // BLOCK_DIM + 1 for x in d_array.shape)
     if d_array.ndim == 1:
-        kernel_itruediv_with_array_1d[griddim, blockdim](d_array, d_other)
+        kernel_itruediv_with_array_1d[griddim, blockdim, stream](d_array, d_other)
     elif d_array.ndim == 2:
-        kernel_itruediv_with_array_2d[griddim, blockdim](d_array, d_other)
+        kernel_itruediv_with_array_2d[griddim, blockdim, stream](d_array, d_other)
     elif d_array.ndim == 3:
-        kernel_itruediv_with_array_3d[griddim, blockdim](d_array, d_other)
+        kernel_itruediv_with_array_3d[griddim, blockdim, stream](d_array, d_other)
     else:
         raise NotImplementedError
 
@@ -287,11 +287,11 @@ def cuda_itruediv_with_scale(d_array, scale, stream=0):
     blockdim = (BLOCK_DIM,) * d_array.ndim
     griddim = tuple((x - 1) // BLOCK_DIM + 1 for x in d_array.shape)
     if d_array.ndim == 1:
-        kernel_itruediv_with_scale_1d[griddim, blockdim](d_array, scale)
+        kernel_itruediv_with_scale_1d[griddim, blockdim, stream](d_array, scale)
     elif d_array.ndim == 2:
-        kernel_itruediv_with_scale_2d[griddim, blockdim](d_array, scale)
+        kernel_itruediv_with_scale_2d[griddim, blockdim, stream](d_array, scale)
     elif d_array.ndim == 3:
-        kernel_itruediv_with_scale_3d[griddim, blockdim](d_array, scale)
+        kernel_itruediv_with_scale_3d[griddim, blockdim, stream](d_array, scale)
     else:
         raise NotImplementedError
 
