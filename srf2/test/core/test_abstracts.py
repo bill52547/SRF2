@@ -1,6 +1,14 @@
+import numba
 import numpy as np
 
 from srf2.core.abstracts import *
+
+
+def ensure_gpu_device(f):
+    if numba.cuda.gpus is not None:
+        f
+    else:
+        return
 
 
 class Attr(AttributeWithShape):
@@ -177,6 +185,7 @@ class Test_Object:
         assert o1 == Obj1(attr, np.ones(5, ) * 0.5)
         assert o2 == Obj1(attr, np.ones(5, ) * 1)
 
+    @ensure_gpu_device
     def test_neg_cuda(self):
         attr = Attr2()
         o1 = -Obj1(attr, np.ones(5, )).to_device()
@@ -184,6 +193,7 @@ class Test_Object:
         o2 = Obj1(attr, -np.ones(5, ))
         assert o1.to_host() == o2
 
+    @ensure_gpu_device
     def test_pos_cuda(self):
         attr = Attr2()
         o1 = Obj1(attr, np.ones(5, )).to_device()
@@ -191,6 +201,7 @@ class Test_Object:
         o2 = Obj1(attr, np.ones(5, )).to_device()
         assert o1.to_host() == o2.to_host()
 
+    @ensure_gpu_device
     def test_add_cuda(self):
         attr1 = Attr2()
         o1 = Obj1(attr1, np.ones(5, )).to_device()
@@ -203,6 +214,7 @@ class Test_Object:
         assert (o1 + o2.to_host()).to_host() == o3
         assert (o1 + 2).to_host() == o3
 
+    @ensure_gpu_device
     def test_sub_cuda(self):
         attr1 = Attr2()
         o1 = Obj1(attr1, np.ones(5, )).to_device()
@@ -215,6 +227,7 @@ class Test_Object:
         assert (o1 - o2.to_host()).to_host() == o3
         assert (o1 - 2).to_host() == o3
 
+    @ensure_gpu_device
     def test_mul_cuda(self):
         attr1 = Attr2()
         o1 = Obj1(attr1, np.ones(5, ) * 2).to_device()
@@ -227,6 +240,7 @@ class Test_Object:
         assert (o1 * o2.to_host()).to_host() == o3
         assert (o1 * 3).to_host() == o3
 
+    @ensure_gpu_device
     def test_div_cuda(self):
         attr1 = Attr2()
         o1 = Obj1(attr1, np.ones(5, )).to_device()
@@ -239,6 +253,7 @@ class Test_Object:
         assert (o1 / o2.to_host()).to_host() == o3
         assert (o1 / 2).to_host() == o3
 
+    @ensure_gpu_device
     def test_iadd_cuda(self):
         attr1 = Attr2()
         o1 = Obj1(attr1, np.ones(5, )).to_device()
@@ -265,6 +280,7 @@ class Test_Object:
         o1 += o2.to_host()
         assert o1.to_host() == o3
 
+    @ensure_gpu_device
     def test_isub_cuda(self):
         attr1 = Attr2()
         o1 = Obj1(attr1, np.ones(5, )).to_device()
@@ -291,6 +307,7 @@ class Test_Object:
         o1 -= o2.to_host()
         assert o1.to_host() == o3
 
+    @ensure_gpu_device
     def test_imul_cuda(self):
         attr1 = Attr2()
         o1 = Obj1(attr1, np.ones(5, ) * 2).to_device()
@@ -317,6 +334,7 @@ class Test_Object:
         o1 *= o2.to_host()
         assert o1.to_host() == o3
 
+    @ensure_gpu_device
     def test_idiv_cuda(self):
         attr1 = Attr2()
         o1 = Obj1(attr1, np.ones(5, ) * 2).to_device()

@@ -115,3 +115,5 @@ tmp*
 # xml files
 *.xml
 *.iml
+# .idea folder
+.idea
