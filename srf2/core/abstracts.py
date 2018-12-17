@@ -42,7 +42,7 @@ class Attribute(object):
     ''' An base attibute class.
     A attribute is an object who consist the attribute to describe another object. More specific, a
     attribute object only contains small descriptions, which can only be a tuple or a value/string (
-    <64k) and can be stored in a hdf5 attibute.
+    <64k) and can be stored in a hdf5 attribute.
     '''
     __device_manager__ = 'host'
 

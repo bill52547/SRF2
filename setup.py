@@ -12,6 +12,6 @@ setup(name = 'SRF2',
           'click',
           'pathlib',
           'numpy',
-          'tqdm', 'numba'
+          'tqdm', 'numba', 'pytest'
       ],
       zip_safe = False)
