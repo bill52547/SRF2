@@ -1,8 +1,7 @@
 import numpy as np
-import pytest
-from numba import cuda
 
 from srf2.core.abstracts import *
+from srf2.utils.test_utils import ensure_gpu
 
 
 class Attr(AttributeWithShape):
@@ -179,7 +178,7 @@ class Test_Object:
         assert o1 == Obj1(attr, np.ones(5, ) * 0.5)
         assert o2 == Obj1(attr, np.ones(5, ) * 1)
 
-    @pytest.mark.skipif(not cuda.is_available(), reason = 'No supported GPU is installed')
+    @ensure_gpu
     def test_neg_cuda(self):
         attr = Attr2()
         o1 = -Obj1(attr, np.ones(5, )).to_device()
@@ -187,7 +186,7 @@ class Test_Object:
         o2 = Obj1(attr, -np.ones(5, ))
         assert o1.to_host() == o2
 
-    @pytest.mark.skipif(not cuda.is_available(), reason = 'No supported GPU is installed')
+    @ensure_gpu
     def test_pos_cuda(self):
         attr = Attr2()
         o1 = Obj1(attr, np.ones(5, )).to_device()
@@ -195,7 +194,7 @@ class Test_Object:
         o2 = Obj1(attr, np.ones(5, )).to_device()
         assert o1.to_host() == o2.to_host()
 
-    @pytest.mark.skipif(not cuda.is_available(), reason = 'No supported GPU is installed')
+    @ensure_gpu
     def test_add_cuda(self):
         attr1 = Attr2()
         o1 = Obj1(attr1, np.ones(5, )).to_device()
@@ -208,7 +207,7 @@ class Test_Object:
         assert (o1 + o2.to_host()).to_host() == o3
         assert (o1 + 2).to_host() == o3
 
-    @pytest.mark.skipif(not cuda.is_available(), reason = 'No supported GPU is installed')
+    @ensure_gpu
     def test_sub_cuda(self):
         attr1 = Attr2()
         o1 = Obj1(attr1, np.ones(5, )).to_device()
@@ -221,7 +220,7 @@ class Test_Object:
         assert (o1 - o2.to_host()).to_host() == o3
         assert (o1 - 2).to_host() == o3
 
-    @pytest.mark.skipif(not cuda.is_available(), reason = 'No supported GPU is installed')
+    @ensure_gpu
     def test_mul_cuda(self):
         attr1 = Attr2()
         o1 = Obj1(attr1, np.ones(5, ) * 2).to_device()
@@ -234,7 +233,7 @@ class Test_Object:
         assert (o1 * o2.to_host()).to_host() == o3
         assert (o1 * 3).to_host() == o3
 
-    @pytest.mark.skipif(not cuda.is_available(), reason = 'No supported GPU is installed')
+    @ensure_gpu
     def test_div_cuda(self):
         attr1 = Attr2()
         o1 = Obj1(attr1, np.ones(5, )).to_device()
@@ -247,7 +246,7 @@ class Test_Object:
         assert (o1 / o2.to_host()).to_host() == o3
         assert (o1 / 2).to_host() == o3
 
-    @pytest.mark.skipif(not cuda.is_available(), reason = 'No supported GPU is installed')
+    @ensure_gpu
     def test_iadd_cuda(self):
         attr1 = Attr2()
         o1 = Obj1(attr1, np.ones(5, )).to_device()
@@ -274,7 +273,7 @@ class Test_Object:
         o1 += o2.to_host()
         assert o1.to_host() == o3
 
-    @pytest.mark.skipif(not cuda.is_available(), reason = 'No supported GPU is installed')
+    @ensure_gpu
     def test_isub_cuda(self):
         attr1 = Attr2()
         o1 = Obj1(attr1, np.ones(5, )).to_device()
@@ -301,7 +300,7 @@ class Test_Object:
         o1 -= o2.to_host()
         assert o1.to_host() == o3
 
-    @pytest.mark.skipif(not cuda.is_available(), reason = 'No supported GPU is installed')
+    @ensure_gpu
     def test_imul_cuda(self):
         attr1 = Attr2()
         o1 = Obj1(attr1, np.ones(5, ) * 2).to_device()
@@ -328,7 +327,7 @@ class Test_Object:
         o1 *= o2.to_host()
         assert o1.to_host() == o3
 
-    @pytest.mark.skipif(not cuda.is_available(), reason = 'No supported GPU is installed')
+    @ensure_gpu
     def test_idiv_cuda(self):
         attr1 = Attr2()
         o1 = Obj1(attr1, np.ones(5, ) * 2).to_device()
